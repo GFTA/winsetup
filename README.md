@@ -1,6 +1,8 @@
 # Startklar Setup
 
-Designed to set up multiple machines quickly and consistently from a single USB stick. Double-click to run the following steps:
+Automated Windows provisioning and update tool — deploys a consistent baseline across multiple machines from a single USB stick. Each run installs pending updates and restarts automatically until the machine is fully up to date.
+
+Steps performed on each run:
 
 - Connect to Wi-Fi (WPA2, profile is created automatically)
 - Install Windows Updates (BIOS/firmware updates are skipped)
@@ -9,15 +11,13 @@ Designed to set up multiple machines quickly and consistently from a single USB 
 - Clean up autostart (OneDrive, Phone Link, Xbox Game Bar, Copilot)
 - Optimize Windows (Sticky Keys, Widgets, Telemetry)
 
-After each run an automatic restart is scheduled and updates are checked again — until no more updates are pending.
-
 ## Requirements
 
 - Windows 10 / Windows 11
 - Administrator rights (automatically requested via UAC)
 - PowerShell module `PSWindowsUpdate` (installed automatically on first run)
 
-## Setup
+## Getting started
 
 1. Copy `config.example.json` to `config.json`:
    ```
