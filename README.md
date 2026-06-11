@@ -1,46 +1,46 @@
 # Startklar Setup
 
-Automatisiertes Windows-Laptop-Setup-Tool fur Smartbar-Gerate. Fuhrt per Doppelklick folgende Schritte aus:
+Automated Windows laptop setup tool for Smartbar devices. Double-click to run the following steps:
 
-- WLAN-Verbindung herstellen (WPA2, Profil wird automatisch erstellt)
-- Windows Updates installieren (BIOS/Firmware-Updates werden ubersprungen)
-- Energieeinstellungen setzen (Monitor/Standby auf 60 min, Hochstleistung aktivieren)
-- Programme installieren (alle `.msi`/`.exe` aus dem `Programs/`-Ordner)
-- Autostart bereinigen (OneDrive, Phone Link, Xbox Game Bar, Copilot)
-- Windows optimieren (Sticky Keys, Widgets, Telemetrie)
+- Connect to Wi-Fi (WPA2, profile is created automatically)
+- Install Windows Updates (BIOS/firmware updates are skipped)
+- Configure power settings (monitor/standby set to 60 min, High performance mode activated)
+- Install programs (all `.msi`/`.exe` files from the `Programs/` folder)
+- Clean up autostart (OneDrive, Phone Link, Xbox Game Bar, Copilot)
+- Optimize Windows (Sticky Keys, Widgets, Telemetry)
 
-Nach jedem Durchlauf wird ein automatischer Neustart geplant und Updates erneut gepruft — solange bis keine Updates mehr ausstehen.
+After each run an automatic restart is scheduled and updates are checked again — until no more updates are pending.
 
 ## Requirements
 
 - Windows 10 / Windows 11
-- Administratorrechte (werden automatisch per UAC angefordert)
-- PowerShell-Modul `PSWindowsUpdate` (wird beim ersten Start automatisch installiert)
+- Administrator rights (automatically requested via UAC)
+- PowerShell module `PSWindowsUpdate` (installed automatically on first run)
 
 ## Setup
 
-1. `config.example.json` nach `config.json` kopieren:
+1. Copy `config.example.json` to `config.json`:
    ```
    copy config.example.json config.json
    ```
-2. `config.json` offnen und die Werte anpassen:
-   - `WLAN.SSID` — Name des WLANs
-   - `WLAN.Password` — WLAN-Passwort (ersetze `CHANGE_ME`)
-3. Optionale Programme in den Ordner `Programs/` legen (`.msi` oder `.exe`).  
-   Fur stille Installation eine `.args`-Datei mit gleichem Namen ablegen (z. B. `setup.exe.args` mit Inhalt `/S`).
-4. `Setup-Laptop.bat` per Doppelklick starten — UAC-Prompt bestatigen, dann lauft alles automatisch.
+2. Open `config.json` and fill in your values:
+   - `WLAN.SSID` — Wi-Fi network name
+   - `WLAN.Password` — Wi-Fi password (replace `CHANGE_ME`)
+3. Optionally place programs in the `Programs/` folder (`.msi` or `.exe`).  
+   For silent installation, add an `.args` file with the same base name (e.g. `setup.exe.args` containing `/S`).
+4. Double-click `Setup-Laptop.bat` — confirm the UAC prompt, everything runs automatically.
 
 ## Screenshot
 
-<!-- Screenshot hier einfugen -->
+<!-- Insert screenshot here -->
 
-## Dateistruktur
+## File structure
 
 ```
 Startklar Setup/
-├── Setup-Laptop.bat       # Einstiegspunkt (Doppelklick)
-├── Setup-Laptop.ps1       # Hauptskript
-├── config.json            # Lokale Konfiguration (nicht im Repo)
-├── config.example.json    # Vorlage fur config.json
-└── Programs/              # Optionale Installationsdateien (.msi/.exe)
+├── Setup-Laptop.bat       # Entry point (double-click)
+├── Setup-Laptop.ps1       # Main script
+├── config.json            # Local configuration (not in repo)
+├── config.example.json    # Template for config.json
+└── Programs/              # Optional installation files (.msi/.exe)
 ```

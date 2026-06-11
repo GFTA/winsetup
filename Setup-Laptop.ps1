@@ -12,8 +12,8 @@ $usbDir   = Split-Path -Parent $MyInvocation.MyCommand.Path
 $LocalDir = "C:\ProgramData\SmartbarSetup"
 if (-not (Test-Path $LocalDir)) { New-Item -ItemType Directory -Path $LocalDir | Out-Null }
 
-# Self-Copy: beim ersten Start von USB Dateien auf lokale Festplatte kopieren
-# Danach kann der Stick entfernt werden - alle Folge-Reboots laufen von C:\
+# Self-copy: on first run from USB, copy files to local hard drive
+# After that the USB drive can be removed - all subsequent reboots run from C:\
 $sync.CopiedFromUsb = $false
 if ($usbDir -ne $LocalDir) {
     foreach ($f in @("Setup-Laptop.ps1", "Setup-Laptop.bat", "config.json")) {
@@ -27,33 +27,33 @@ if ($usbDir -ne $LocalDir) {
     $sync.CopiedFromUsb = $true
 }
 
-# Geraete-Infos fuer Log-Dateinamen
+# Device info for log file names
 $rawSN    = (Get-WmiObject Win32_BIOS -ErrorAction SilentlyContinue).SerialNumber
 $rawModel = (Get-WmiObject Win32_ComputerSystem -ErrorAction SilentlyContinue).Model
 if (-not $rawSN -or $rawSN -match "Default|To Be Filled|Not Specified|^$") { $rawSN = "UNKNOWN" }
 $sync.DeviceSN    = $rawSN.Trim() -replace '[\\/:*?"<>| ]', '_'
-$sync.DeviceModel = if ($rawModel) { $rawModel.Trim() } else { "Unbekanntes Modell" }
+$sync.DeviceModel = if ($rawModel) { $rawModel.Trim() } else { "Unknown model" }
 
-# Log-Ziel: nur auf dem Stick (nicht auf Kundengeraet)
+# Log destination: USB drive only (not on customer device)
 $sourcePathFile = Join-Path $LocalDir "source_path.txt"
 if ($usbDir -ne $LocalDir) {
-    # Von USB/Quelle gestartet: Pfad fuer AutoRun-Laeufe speichern
+    # Started from USB/source: save path for AutoRun passes
     Set-Content $sourcePathFile $usbDir -Encoding UTF8
     $logSource = $usbDir
 } elseif (Test-Path $sourcePathFile) {
-    # AutoRun-Lauf: gespeicherten Stick-Pfad lesen
+    # AutoRun pass: read saved USB path
     $saved = (Get-Content $sourcePathFile -Raw -ErrorAction SilentlyContinue).Trim()
     $logSource = if ($saved -and (Test-Path $saved)) { $saved } else { $LocalDir }
 } else {
     $logSource = $LocalDir
 }
 
-# Ab jetzt immer von LocalDir aus arbeiten
+# From now on always work from LocalDir
 $sync.ScriptDir   = $LocalDir
 $sync.ProgramsDir = Join-Path $LocalDir "Programs"
-$sync.LogDir      = Join-Path $LocalDir "Logs"   # immer lokal
+$sync.LogDir      = Join-Path $LocalDir "Logs"   # always local
 
-# Config laden (WLAN, Autostart, ...)
+# Load config (WLAN, Autostart, ...)
 $configFile = Join-Path $LocalDir "config.json"
 $_cfg = $null
 if (Test-Path $configFile) {
@@ -66,14 +66,14 @@ $sync.UpdateSkipPattern  = if ($_cfg -and $_cfg.UpdateSkipPattern)             {
 if (-not (Test-Path $sync.LogDir)) { New-Item -ItemType Directory -Path $sync.LogDir | Out-Null }
 $sync.LogFile         = Join-Path $sync.LogDir "$(Get-Date -Format 'yyyy-MM-dd')_$($sync.DeviceSN).txt"
 
-# Logs aelter als 30 Tage loeschen
+# Delete logs older than 30 days
 Get-ChildItem $sync.LogDir -Filter "*.txt" -ErrorAction SilentlyContinue |
     Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-30) } |
     Remove-Item -Force
 $sync.AutoRun  = $AutoRun.IsPresent
 $sync.TaskName = "SmartbarSetup"
 
-# Durchlauf-Zaehler (lokal, nicht auf Stick)
+# Run counter (local, not on USB)
 $counterFile = Join-Path $sync.ScriptDir "setup_run.tmp"
 if (Test-Path $counterFile) {
     $sync.RunCount = [int](Get-Content $counterFile -Raw) + 1
@@ -163,14 +163,14 @@ Set-Content $counterFile $sync.RunCount
         </Style>
     </Window.Resources>
     <Grid>
-        <!-- Normaler Setup-View -->
+        <!-- Main setup view -->
         <Grid x:Name="viewSetup">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="300"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
-            <!-- Linke Seite: Optionen -->
+            <!-- Left side: Options -->
             <Border Grid.Column="0" Background="#181825">
                 <Grid Margin="24">
                     <Grid.RowDefinitions>
@@ -190,15 +190,15 @@ Set-Content $counterFile $sync.RunCount
                         <TextBlock x:Name="txtRunCount" Text="" FontSize="11" Foreground="#6c7086" Margin="0,2,0,0"/>
                     </StackPanel>
 
-                    <!-- Checkboxen -->
+                    <!-- Checkboxes -->
                     <StackPanel Grid.Row="1" Margin="0,0,0,24">
-                        <TextBlock Text="SCHRITTE" FontSize="10" Foreground="#6c7086" FontWeight="Bold" Margin="0,0,0,10"/>
-                        <CheckBox x:Name="chkWifi"     Content="WLAN verbinden" IsChecked="True"/>
+                        <TextBlock Text="STEPS" FontSize="10" Foreground="#6c7086" FontWeight="Bold" Margin="0,0,0,10"/>
+                        <CheckBox x:Name="chkWifi"     Content="Connect Wi-Fi" IsChecked="True"/>
                         <CheckBox x:Name="chkUpdates"  Content="Windows Updates" IsChecked="True"/>
-                        <CheckBox x:Name="chkEnergy"   Content="Energieeinstellungen" IsChecked="True"/>
-                        <CheckBox x:Name="chkCalman"   Content="Programme installieren" IsChecked="True"/>
+                        <CheckBox x:Name="chkEnergy"   Content="Power settings" IsChecked="True"/>
+                        <CheckBox x:Name="chkCalman"   Content="Install programs" IsChecked="True"/>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
-                            <CheckBox x:Name="chkOneDrive" Content="Autostart bereinigen" IsChecked="True" VerticalAlignment="Center"/>
+                            <CheckBox x:Name="chkOneDrive" Content="Clean up autostart" IsChecked="True" VerticalAlignment="Center"/>
                             <TextBlock x:Name="btnAutostartToggle" Text=" >" Foreground="#89b4fa"
                                        FontSize="12" Cursor="Hand" VerticalAlignment="Center" Margin="4,0,0,0"/>
                         </StackPanel>
@@ -208,13 +208,13 @@ Set-Content $counterFile $sync.RunCount
                             <CheckBox x:Name="chkAutoXbox"      Content="Xbox Game Bar" IsChecked="True" FontSize="12" Margin="0,2,0,2"/>
                             <CheckBox x:Name="chkAutoCopilot"   Content="Copilot"       IsChecked="True" FontSize="12" Margin="0,2,0,2"/>
                         </StackPanel>
-                        <CheckBox x:Name="chkTweaks"   Content="Windows optimieren" IsChecked="True"/>
+                        <CheckBox x:Name="chkTweaks"   Content="Optimize Windows" IsChecked="True"/>
                     </StackPanel>
 
-                    <!-- Fortschritt -->
+                    <!-- Progress -->
                     <StackPanel Grid.Row="2" VerticalAlignment="Bottom" Margin="0,0,0,20">
                         <DockPanel Margin="0,0,0,8">
-                            <TextBlock x:Name="txtStatus" Text="Bereit" FontSize="13" Foreground="#cdd6f4" VerticalAlignment="Center"/>
+                            <TextBlock x:Name="txtStatus" Text="Ready" FontSize="13" Foreground="#cdd6f4" VerticalAlignment="Center"/>
                             <TextBlock x:Name="txtStep" Text="" FontSize="11" Foreground="#6c7086" HorizontalAlignment="Right" VerticalAlignment="Center"/>
                         </DockPanel>
                         <ProgressBar x:Name="progressBar" Height="8" Minimum="0" Maximum="100" Value="0"
@@ -233,12 +233,12 @@ Set-Content $counterFile $sync.RunCount
                     </StackPanel>
 
                     <!-- Button + Footer -->
-                    <Button x:Name="btnStart" Grid.Row="3" Content="Setup starten" Margin="0,0,0,10"/>
+                    <Button x:Name="btnStart" Grid.Row="3" Content="Start setup" Margin="0,0,0,10"/>
                     <TextBlock x:Name="txtFooter" Grid.Row="4" Text="" FontSize="10" Foreground="#6c7086" HorizontalAlignment="Center" TextWrapping="Wrap"/>
                 </Grid>
             </Border>
 
-            <!-- Rechte Seite: Log -->
+            <!-- Right side: Log -->
             <Border Grid.Column="1" Background="#11111b" Margin="0">
                 <ScrollViewer x:Name="logScroller" VerticalScrollBarVisibility="Auto" Margin="0">
                     <TextBlock x:Name="txtLog" FontFamily="Consolas" FontSize="13"
@@ -247,17 +247,17 @@ Set-Content $counterFile $sync.RunCount
             </Border>
         </Grid>
 
-        <!-- Fertig-View (am Ende sichtbar) -->
+        <!-- Done view (visible at the end) -->
         <Grid x:Name="viewDone" Visibility="Collapsed" Background="#1e1e2e">
             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
                 <TextBlock x:Name="txtDoneCheck" Text="&#10003;" FontSize="80" Foreground="#a6e3a1" HorizontalAlignment="Center"/>
-                <TextBlock x:Name="txtDoneTitle" Text="Laptop fertig!" FontSize="32" FontWeight="Bold" Foreground="#a6e3a1"
+                <TextBlock x:Name="txtDoneTitle" Text="Laptop ready!" FontSize="32" FontWeight="Bold" Foreground="#a6e3a1"
                            HorizontalAlignment="Center" Margin="0,8,0,4"/>
                 <TextBlock x:Name="txtDoneDetails" Text="" FontSize="14" Foreground="#6c7086"
                            HorizontalAlignment="Center" Margin="0,0,0,32" TextAlignment="Center"/>
-                <Button x:Name="btnDoneOpenLog" Content="Log oeffnen" Width="200"
+                <Button x:Name="btnDoneOpenLog" Content="Open log" Width="200"
                         Background="#313244" Foreground="#cdd6f4" Margin="0,0,0,8"/>
-                <Button x:Name="btnDoneClose" Content="Fenster schliessen" Width="200"
+                <Button x:Name="btnDoneClose" Content="Close window" Width="200"
                         Background="#45475a" Foreground="#cdd6f4"/>
             </StackPanel>
         </Grid>
@@ -299,29 +299,29 @@ $sync.txtDoneDetails  = $sync.Window.FindName("txtDoneDetails")
 $sync.btnDoneOpenLog  = $sync.Window.FindName("btnDoneOpenLog")
 $sync.btnDoneClose    = $sync.Window.FindName("btnDoneClose")
 
-# Labels dynamisch befuellen
-$sync.chkWifi.Content = "WLAN verbinden ($($sync.WlanSSID))"
+# Populate labels dynamically
+$sync.chkWifi.Content = "Connect Wi-Fi ($($sync.WlanSSID))"
 $_progFiles = if (Test-Path $sync.ProgramsDir) {
     Get-ChildItem $sync.ProgramsDir -File -ErrorAction SilentlyContinue |
         Where-Object { $_.Extension -in @(".msi", ".exe") }
 } else { @() }
 $_progCount = @($_progFiles).Count
 if ($_progCount -gt 0) {
-    $sync.chkCalman.Content = "Programme installieren ($_progCount)"
+    $sync.chkCalman.Content = "Install programs ($_progCount)"
 } else {
-    $sync.chkCalman.Content   = "Programme installieren (keine)"
+    $sync.chkCalman.Content   = "Install programs (none)"
     $sync.chkCalman.IsChecked = $false
     $sync.chkCalman.IsEnabled = $false
 }
 
-# Durchlauf-Anzeige (nur im AutoRun-Modus)
+# Run counter display (AutoRun mode only)
 if ($sync.AutoRun) {
-    $sync.txtRunCount.Text = "Durchlauf $($sync.RunCount)"
+    $sync.txtRunCount.Text = "Run $($sync.RunCount)"
 } else {
     $sync.txtRunCount.Text = ""
 }
 
-# Im AutoRun-Modus: nur Updates, Checkboxen sperren
+# In AutoRun mode: updates only, lock checkboxes
 if ($sync.AutoRun) {
     $sync.chkWifi.IsChecked      = $false
     $sync.chkEnergy.IsChecked    = $false
@@ -338,7 +338,7 @@ if ($sync.AutoRun) {
     $sync.chkUpdates.IsEnabled   = $false
 }
 
-# Autostart: Pfeil klappt Sub-Panel auf/zu
+# Autostart: arrow expands/collapses sub-panel
 $sync.btnAutostartToggle.Add_MouseLeftButtonUp({
     if ($sync.pnlAutostart.Visibility -eq "Collapsed") {
         $sync.pnlAutostart.Visibility = "Visible"
@@ -348,12 +348,12 @@ $sync.btnAutostartToggle.Add_MouseLeftButtonUp({
         $sync.btnAutostartToggle.Text = $sync.ArrowRight
     }
 })
-# Eltern-Checkbox aktiviert/deaktiviert Sub-Optionen
+# Parent checkbox enables/disables sub-options
 $sync.chkOneDrive.Add_Click({
     $sync.pnlAutostart.IsEnabled = [bool]$sync.chkOneDrive.IsChecked
 })
 
-# Worker-Script
+# Worker script
 $sync.WorkerScript = {
 
     function Write-UILog {
@@ -384,15 +384,15 @@ $sync.WorkerScript = {
         $scriptPath = Join-Path $sync.ScriptDir "Setup-Laptop.ps1"
         $taskArg    = "powershell.exe -NoProfile -ExecutionPolicy Bypass -File `"$scriptPath`" -AutoRun"
         schtasks.exe /create /tn $sync.TaskName /tr $taskArg /sc onlogon /ru $env:USERNAME /rl highest /f | Out-Console
-        Write-UILog "Auto-Neustart registriert (Aufgabenplanung)"
+        Write-UILog "Auto-restart registered (Task Scheduler)"
     }
 
     function Remove-AutoRunTask {
         schtasks.exe /delete /tn $sync.TaskName /f 2>$null | Out-Console
-        Write-UILog "Auto-Neustart entfernt"
+        Write-UILog "Auto-restart removed"
         $counterFile = Join-Path $sync.ScriptDir "setup_run.tmp"
         if (Test-Path $counterFile) { Remove-Item $counterFile -Force }
-        # Setup-Ordner beim naechsten Login automatisch loeschen (RunOnce)
+        # Automatically delete setup folder on next login (RunOnce)
         $cleanCmd = "cmd /c rmdir /s /q `"$($sync.ScriptDir)`""
         reg.exe add "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\RunOnce" /v "SmartbarCleanup" /t REG_SZ /d $cleanCmd /f | Out-Console
     }
@@ -411,23 +411,23 @@ $sync.WorkerScript = {
         $okCount         = 0
         $failedStepNames = [System.Collections.Generic.List[string]]::new()
 
-        Write-UILog "=== Durchlauf $($sync.RunCount) auf $env:COMPUTERNAME ==="
-        Write-UILog "Geraet: $($sync.DeviceModel)  |  SN: $($sync.DeviceSN)"
+        Write-UILog "=== Run $($sync.RunCount) on $env:COMPUTERNAME ==="
+        Write-UILog "Device: $($sync.DeviceModel)  |  SN: $($sync.DeviceSN)"
 
-        # WLAN
+        # Wi-Fi
         if ($sync.DoWifi) {
-            Set-UIProgress ([int]($doneSteps / $totalSteps * 100)) "WLAN verbinden..." "Schritt $($doneSteps+1)/$totalSteps"
-            Write-UILog "Verbinde mit WLAN $($sync.WlanSSID)..."
+            Set-UIProgress ([int]($doneSteps / $totalSteps * 100)) "Connecting to Wi-Fi..." "Step $($doneSteps+1)/$totalSteps"
+            Write-UILog "Connecting to Wi-Fi $($sync.WlanSSID)..."
             try {
                 $ssidPattern = [regex]::Escape($sync.WlanSSID)
 
-                # Schon verbunden? Get-NetConnectionProfile ist locale-unabhaengig und
-                # zuverlaessiger als netsh-Textparsung (kein BSSID/Encoding-Problem)
+                # Already connected? Get-NetConnectionProfile is locale-independent and
+                # more reliable than netsh text parsing (no BSSID/encoding issue)
                 $alreadyConn = $false
                 try {
                     $alreadyConn = (Get-NetConnectionProfile -ErrorAction Stop).Name -contains $sync.WlanSSID
                 } catch {
-                    # Fallback: netsh zeilenweise (verhindert BSSID-Substring-Treffer)
+                    # Fallback: netsh line by line (prevents BSSID substring match)
                     foreach ($line in @(netsh wlan show interfaces)) {
                         if ($line -match "^\s+SSID\s+:\s+(.+)$" -and $line -notmatch "BSSID") {
                             $alreadyConn = ($matches[1].Trim() -eq $sync.WlanSSID)
@@ -436,7 +436,7 @@ $sync.WorkerScript = {
                     }
                 }
                 if ($alreadyConn) {
-                    Write-UILog "WLAN $($sync.WlanSSID) bereits verbunden" "OK"
+                    Write-UILog "Wi-Fi $($sync.WlanSSID) already connected" "OK"
                     $okCount++
                 } else {
                     $wifiXml = @"
@@ -467,22 +467,22 @@ $sync.WorkerScript = {
                     netsh wlan add profile filename="$wifiXmlPath" user=all | Out-Console
                     Remove-Item $wifiXmlPath -Force -ErrorAction SilentlyContinue
 
-                    # netsh wlan connect schlaegt elevated fehl (WlanGetAvailableNetworkList Error 5)
-                    # Stattdessen: Adapter kurz deaktivieren -> WLAN-AutoConfig verbindet selbst
+                    # netsh wlan connect fails elevated (WlanGetAvailableNetworkList Error 5)
+                    # Instead: briefly disable adapter -> WLAN AutoConfig connects automatically
                     $wlanName = $null
                     foreach ($line in (netsh wlan show interfaces 2>$null)) {
                         if ($line -match "^\s+Name\s+:\s+(.+)") { $wlanName = $matches[1].Trim(); break }
                     }
                     if ($wlanName) {
-                        Write-UILog "Adapter '$wlanName' neu starten..."
+                        Write-UILog "Restarting adapter '$wlanName'..."
                         netsh interface set interface "$wlanName" disabled 2>$null | Out-Console
                         Start-Sleep 2
                         netsh interface set interface "$wlanName" enabled  2>$null | Out-Console
                         Start-Sleep 3
                     }
 
-                    # Warten bis verbunden
-                    Write-UILog "Warte auf WLAN-Verbindung..."
+                    # Wait until connected
+                    Write-UILog "Waiting for Wi-Fi connection..."
                     $maxWait   = 90
                     $waited    = 0
                     $connected = $false
@@ -501,25 +501,25 @@ $sync.WorkerScript = {
                         }
                     }
                     if ($connected) {
-                        Write-UILog "WLAN $($sync.WlanSSID) verbunden (nach $waited Sek)" "OK"
+                        Write-UILog "Wi-Fi $($sync.WlanSSID) connected (after $waited sec)" "OK"
                         $okCount++
                     } else {
-                        Write-UILog "WLAN: Timeout nach $maxWait Sek - Verbindung nicht bestaetigt" "WARN"
+                        Write-UILog "Wi-Fi: Timeout after $maxWait sec - connection not confirmed" "WARN"
                         $okCount++
                     }
                 }
             } catch {
-                Write-UILog "Fehler WLAN: $_" "ERROR"
+                Write-UILog "Error Wi-Fi: $_" "ERROR"
                 $errCount++
-                $failedStepNames.Add("WLAN")
+                $failedStepNames.Add("Wi-Fi")
             }
             $doneSteps++
         }
 
-        # Energieeinstellungen
+        # Power settings
         if ($sync.DoEnergy) {
-            Set-UIProgress ([int]($doneSteps / $totalSteps * 100)) "Energieeinstellungen..." "Schritt $($doneSteps+1)/$totalSteps"
-            Write-UILog "Setze Energieeinstellungen..."
+            Set-UIProgress ([int]($doneSteps / $totalSteps * 100)) "Power settings..." "Step $($doneSteps+1)/$totalSteps"
+            Write-UILog "Setting power options..."
             $stepStart = Get-Date
             try {
                 powercfg /change monitor-timeout-ac 60 | Out-Console
@@ -528,20 +528,20 @@ $sync.WorkerScript = {
                 powercfg /change standby-timeout-dc 60 | Out-Console
                 powercfg /change disk-timeout-ac    0  | Out-Console
                 powercfg /change disk-timeout-dc    0  | Out-Console
-                Write-UILog "Energieeinstellungen gesetzt ($([int]((Get-Date)-$stepStart).TotalSeconds)s)" "OK"
+                Write-UILog "Power settings configured ($([int]((Get-Date)-$stepStart).TotalSeconds)s)" "OK"
                 $okCount++
             } catch {
-                Write-UILog "Fehler Energieeinstellungen: $_" "ERROR"
+                Write-UILog "Error power settings: $_" "ERROR"
                 $errCount++
-                $failedStepNames.Add("Energieeinstellungen")
+                $failedStepNames.Add("Power settings")
             }
             $doneSteps++
         }
 
-        # Programme installieren
+        # Install programs
         if ($sync.DoCalman) {
-            Set-UIProgress ([int]($doneSteps / $totalSteps * 100)) "Programme installieren..." "Schritt $($doneSteps+1)/$totalSteps"
-            Write-UILog "Installiere Programme..."
+            Set-UIProgress ([int]($doneSteps / $totalSteps * 100)) "Installing programs..." "Step $($doneSteps+1)/$totalSteps"
+            Write-UILog "Installing programs..."
             $stepStart = Get-Date
             $progFiles = if (Test-Path $sync.ProgramsDir) {
                 Get-ChildItem $sync.ProgramsDir -File -ErrorAction SilentlyContinue |
@@ -550,14 +550,14 @@ $sync.WorkerScript = {
             } else { @() }
             $progCount = ($progFiles | Measure-Object).Count
             if ($progCount -eq 0) {
-                Write-UILog "Keine Programme im Programs-Ordner" "OK"
+                Write-UILog "No programs in Programs folder" "OK"
                 $okCount++
             } else {
                 $pi = 0
                 foreach ($prog in $progFiles) {
                     $pi++
                     Write-UILog "  ($pi/$progCount) $($prog.Name)"
-                    Set-UIProgress ([int]($doneSteps / $totalSteps * 100)) "Installiere $($prog.BaseName)..." "Schritt $($doneSteps+1)/$totalSteps"
+                    Set-UIProgress ([int]($doneSteps / $totalSteps * 100)) "Installing $($prog.BaseName)..." "Step $($doneSteps+1)/$totalSteps"
                     try {
                         $pLog = Join-Path $env:TEMP "$($prog.BaseName)_install.log"
                         if ($prog.Extension -eq ".msi") {
@@ -572,37 +572,37 @@ $sync.WorkerScript = {
                         $pct = [int]($doneSteps / $totalSteps * 100)
                         while (-not $proc.HasExited) {
                             Start-Sleep 1; $elapsed++
-                            Set-UIProgress $pct "Installiere $($prog.BaseName)... ($($elapsed)s)" "Schritt $($doneSteps+1)/$totalSteps"
+                            Set-UIProgress $pct "Installing $($prog.BaseName)... ($($elapsed)s)" "Step $($doneSteps+1)/$totalSteps"
                         }
                         if ($proc.ExitCode -eq 0 -or $proc.ExitCode -eq 3010) {
-                            Write-UILog "  $($prog.BaseName) installiert ($($elapsed)s)" "OK"
+                            Write-UILog "  $($prog.BaseName) installed ($($elapsed)s)" "OK"
                             $okCount++
                         } else {
                             Write-UILog "  $($prog.BaseName) Exit Code: $($proc.ExitCode)" "ERROR"
                             $errCount++
-                            $failedStepNames.Add("Programm: $($prog.BaseName)")
+                            $failedStepNames.Add("Program: $($prog.BaseName)")
                         }
                     } catch {
-                        Write-UILog "  Fehler $($prog.BaseName): $_" "ERROR"
+                        Write-UILog "  Error $($prog.BaseName): $_" "ERROR"
                         $errCount++
-                        $failedStepNames.Add("Programm: $($prog.BaseName)")
+                        $failedStepNames.Add("Program: $($prog.BaseName)")
                     }
                 }
-                Write-UILog "Programme fertig ($([int]((Get-Date)-$stepStart).TotalSeconds)s)"
+                Write-UILog "Programs done ($([int]((Get-Date)-$stepStart).TotalSeconds)s)"
             }
             $doneSteps++
         }
 
-        # Autostart bereinigen
+        # Clean up autostart
         if ($sync.DoOneDrive) {
-            Set-UIProgress ([int]($doneSteps / $totalSteps * 100)) "Autostart bereinigen..." "Schritt $($doneSteps+1)/$totalSteps"
-            Write-UILog "Bereinige Autostart..."
+            Set-UIProgress ([int]($doneSteps / $totalSteps * 100)) "Cleaning up autostart..." "Step $($doneSteps+1)/$totalSteps"
+            Write-UILog "Cleaning up autostart..."
             $stepStart = Get-Date
             try {
                 $runKey  = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run"
                 $runKeyL = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run"
 
-                # Checkbox-Flags: welche Gruppen sind aktiv?
+                # Checkbox flags: which groups are active?
                 $flagMap = @{
                     "OneDrive"  = $sync.DoAutoOneDrive
                     "PhoneLink" = $sync.DoAutoPhoneLink
@@ -618,7 +618,7 @@ $sync.WorkerScript = {
                         foreach ($path in @($runKey, $runKeyL)) {
                             if ((Get-ItemProperty $path -ErrorAction SilentlyContinue).$key) {
                                 Remove-ItemProperty $path -Name $key -Force -ErrorAction SilentlyContinue
-                                Write-UILog "  $($entry.ID): $key aus Autostart entfernt"
+                                Write-UILog "  $($entry.ID): $key removed from autostart"
                             }
                         }
                     }
@@ -629,23 +629,23 @@ $sync.WorkerScript = {
                     }
                 }
 
-                Write-UILog "Autostart bereinigt ($([int]((Get-Date)-$stepStart).TotalSeconds)s)" "OK"
+                Write-UILog "Autostart cleaned up ($([int]((Get-Date)-$stepStart).TotalSeconds)s)" "OK"
                 $okCount++
             } catch {
-                Write-UILog "Fehler Autostart: $_" "ERROR"
+                Write-UILog "Error autostart: $_" "ERROR"
                 $errCount++
-                $failedStepNames.Add("Autostart bereinigen")
+                $failedStepNames.Add("Clean up autostart")
             }
             $doneSteps++
         }
 
-        # Windows optimieren
+        # Optimize Windows
         if ($sync.DoTweaks) {
-            Set-UIProgress ([int]($doneSteps / $totalSteps * 100)) "Windows optimieren..." "Schritt $($doneSteps+1)/$totalSteps"
-            Write-UILog "Optimiere Windows-Einstellungen..."
+            Set-UIProgress ([int]($doneSteps / $totalSteps * 100)) "Optimizing Windows..." "Step $($doneSteps+1)/$totalSteps"
+            Write-UILog "Optimizing Windows settings..."
             $stepStart = Get-Date
             try {
-                # Sticky Keys deaktivieren
+                # Disable Sticky Keys
                 $stickyPath = "HKCU:\Control Panel\Accessibility\StickyKeys"
                 $togglePath = "HKCU:\Control Panel\Accessibility\ToggleKeys"
                 $filterPath = "HKCU:\Control Panel\Accessibility\Keyboard Response"
@@ -655,43 +655,43 @@ $sync.WorkerScript = {
                 Set-ItemProperty $stickyPath -Name "Flags" -Value "506"  -Force
                 Set-ItemProperty $togglePath -Name "Flags" -Value "58"   -Force
                 Set-ItemProperty $filterPath -Name "Flags" -Value "122"  -Force
-                Write-UILog "  Sticky Keys deaktiviert"
+                Write-UILog "  Sticky Keys disabled"
 
-                # Widgets (Windows 11 Taskbar)
+                # Widgets (Windows 11 taskbar)
                 $advPath = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced"
                 Set-ItemProperty $advPath -Name "TaskbarDa" -Value 0 -Force -ErrorAction SilentlyContinue
                 # News and Interests (Windows 10)
                 $feedsPath = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Feeds"
                 if (-not (Test-Path $feedsPath)) { New-Item $feedsPath -Force | Out-Console }
                 Set-ItemProperty $feedsPath -Name "ShellFeedsTaskbarViewMode" -Value 2 -Force -ErrorAction SilentlyContinue
-                Write-UILog "  Widgets/News deaktiviert"
+                Write-UILog "  Widgets/News disabled"
 
-                # Telemetrie auf Minimum
+                # Telemetry to minimum
                 $telPath = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DataCollection"
                 if (-not (Test-Path $telPath)) { New-Item $telPath -Force | Out-Console }
                 Set-ItemProperty $telPath -Name "AllowTelemetry" -Value 1 -Force
                 $telPath2 = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\DataCollection"
                 if (-not (Test-Path $telPath2)) { New-Item $telPath2 -Force | Out-Console }
                 Set-ItemProperty $telPath2 -Name "AllowTelemetry" -Value 1 -Force
-                Write-UILog "  Telemetrie auf Minimum gesetzt"
+                Write-UILog "  Telemetry set to minimum"
 
-                # Leistungsmodus: Hochstleistung aktivieren und setzen
-                # GUID 8c5e7fda = Hohe Leistung; e9a42b02 = Ultimative Leistung (nur Desktop)
+                # Performance mode: activate and set High performance
+                # GUID 8c5e7fda = High performance; e9a42b02 = Ultimate performance (desktop only)
                 $perfGuid = "8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c"
                 powercfg /setactive $perfGuid 2>$null | Out-Console
                 if ($LASTEXITCODE -ne 0) {
-                    # Plan nicht vorhanden -> duplizieren
+                    # Plan not found -> duplicate
                     powercfg /duplicatescheme $perfGuid 2>$null | Out-Console
                     powercfg /setactive $perfGuid 2>$null | Out-Console
                 }
-                Write-UILog "  Leistungsmodus: Hohe Leistung aktiviert"
+                Write-UILog "  Power mode: High performance activated"
 
-                Write-UILog "Windows optimiert ($([int]((Get-Date)-$stepStart).TotalSeconds)s)" "OK"
+                Write-UILog "Windows optimized ($([int]((Get-Date)-$stepStart).TotalSeconds)s)" "OK"
                 $okCount++
             } catch {
-                Write-UILog "Fehler Windows-Optimierung: $_" "ERROR"
+                Write-UILog "Error Windows optimization: $_" "ERROR"
                 $errCount++
-                $failedStepNames.Add("Windows optimieren")
+                $failedStepNames.Add("Optimize Windows")
             }
             $doneSteps++
         }
@@ -699,20 +699,20 @@ $sync.WorkerScript = {
         # Windows Updates
         $updatesInstalled = $false
         if ($sync.DoUpdates) {
-            Set-UIProgress ([int]($doneSteps / $totalSteps * 100)) "Windows Updates..." "Schritt $($doneSteps+1)/$totalSteps"
+            Set-UIProgress ([int]($doneSteps / $totalSteps * 100)) "Windows Updates..." "Step $($doneSteps+1)/$totalSteps"
 
-            # Internet-Check
-            Write-UILog "Pruefe Internetverbindung..."
+            # Internet check
+            Write-UILog "Checking internet connection..."
             $online = $false
             try {
                 $null = [System.Net.WebClient]::new().DownloadString("http://www.msftconnecttest.com/connecttest.txt")
                 $online = $true
-                Write-UILog "Internetverbindung OK" "OK"
+                Write-UILog "Internet connection OK" "OK"
             } catch {
-                Write-UILog "KEIN INTERNET - Windows Updates koennen nicht installiert werden!" "ERROR"
-                Write-UILog "Bitte Netzwerkkabel/WLAN verbinden und erneut versuchen." "ERROR"
+                Write-UILog "NO INTERNET - Windows Updates cannot be installed!" "ERROR"
+                Write-UILog "Please connect a network cable or Wi-Fi and try again." "ERROR"
                 $sync.Window.Dispatcher.Invoke([action]{
-                    $sync.btnStart.Content      = "Erneut versuchen"
+                    $sync.btnStart.Content      = "Try again"
                     $sync.btnStart.IsEnabled    = $true
                     $sync.chkWifi.IsEnabled     = $true
                     $sync.chkEnergy.IsEnabled   = $true
@@ -720,24 +720,24 @@ $sync.WorkerScript = {
                     $sync.chkOneDrive.IsEnabled = $true
                     $sync.chkTweaks.IsEnabled   = $true
                     $sync.chkUpdates.IsEnabled  = $true
-                    $sync.txtStatus.Text        = "Kein Internet!"
+                    $sync.txtStatus.Text        = "No internet!"
                 }, "Normal")
                 return
             }
 
-            Write-UILog "Pruefe PSWindowsUpdate..."
+            Write-UILog "Checking PSWindowsUpdate..."
             if (-not (Get-Module -ListAvailable -Name PSWindowsUpdate)) {
                 try {
                     Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Scope CurrentUser | Out-Console
                     Install-Module -Name PSWindowsUpdate -Force -Scope CurrentUser -AllowClobber | Out-Console
-                    Write-UILog "PSWindowsUpdate installiert" "OK"
+                    Write-UILog "PSWindowsUpdate installed" "OK"
                 } catch {
-                    Write-UILog "Fehler PSWindowsUpdate: $_" "ERROR"
+                    Write-UILog "Error PSWindowsUpdate: $_" "ERROR"
                 }
             }
             if (Get-Module -ListAvailable -Name PSWindowsUpdate) {
                 Import-Module PSWindowsUpdate
-                Write-UILog "Suche nach Updates..."
+                Write-UILog "Searching for updates..."
                 $stepStart = Get-Date
                 try {
                     $skipPat  = $sync.UpdateSkipPattern
@@ -746,13 +746,13 @@ $sync.WorkerScript = {
                     $updates  = @($allFound | Where-Object { $_.Title -notmatch $skipPat })
 
                     if ($skipped.Count -gt 0) {
-                        Write-UILog "$($skipped.Count) Update(s) uebersprungen (werden beim Neustart angewendet):"
+                        Write-UILog "$($skipped.Count) update(s) skipped (will be applied on restart):"
                         foreach ($s in $skipped) { Write-UILog "  [skip] $($s.Title)" }
                     }
 
                     $count   = $updates.Count
                     if ($count -gt 0) {
-                        Write-UILog "$count Update(s) gefunden:"
+                        Write-UILog "$count update(s) found:"
                         $stepBase = [int]($doneSteps / $totalSteps * 100)
                         $stepSize = [int](1 / $totalSteps * 100)
                         $i = 0
@@ -761,19 +761,19 @@ $sync.WorkerScript = {
                             Write-UILog "  ($i/$count): $($u.Title)"
                         }
 
-                        # KB-IDs der gefilterten Updates fuer Install-WU
+                        # KB IDs of filtered updates for Install-WU
                         $filteredKBs = @($updates | ForEach-Object {
                             if ($_.KBArticleIDs) { $_.KBArticleIDs } elseif ($_.KBArticleID) { $_.KBArticleID }
                         } | Where-Object { $_ } | Select-Object -Unique)
 
-                        Write-UILog "Installiere $count Update(s)..."
-                        Set-UIProgress $stepBase "Download laeuft..." "Schritt $($doneSteps+1)/$totalSteps"
+                        Write-UILog "Installing $count update(s)..."
+                        Set-UIProgress $stepBase "Downloading..." "Step $($doneSteps+1)/$totalSteps"
                         $downloaded = 0
                         $installed  = 0
                         $barWidth   = 24
 
-                        # Installation in separatem Runspace mit Timeout
-                        # BIOS/Firmware bereits herausgefiltert - restliche Updates (inkl. .NET) bekommen 15 Min
+                        # Installation in a separate Runspace with timeout
+                        # BIOS/Firmware already filtered out - remaining updates (incl. .NET) get 15 min
                         $instQueue = [System.Collections.Concurrent.ConcurrentQueue[object]]::new()
                         $instSync  = [hashtable]::Synchronized(@{ Done = $false; Error = $null })
 
@@ -804,7 +804,7 @@ $sync.WorkerScript = {
                         })
                         [void]$instPs.BeginInvoke()
 
-                        $instMax  = 900   # 15 Minuten Timeout (z.B. grosse .NET Updates)
+                        $instMax  = 900   # 15 minute timeout (e.g. large .NET updates)
                         $instElap = 0
                         $qItem    = $null
 
@@ -822,7 +822,7 @@ $sync.WorkerScript = {
                                     $pct    = $stepBase + [int]($downloaded / $count * $stepSize * 0.5)
                                     $uTitle = if ($qItem.Title.Length -gt 35) { $qItem.Title.Substring(0,35) + "..." } else { $qItem.Title }
                                     Write-UILog "  [DL $bar] $downloaded/$count  $uTitle"
-                                    Set-UIProgress $pct "Download $downloaded/$count..." "Schritt $($doneSteps+1)/$totalSteps"
+                                    Set-UIProgress $pct "Downloading $downloaded/$count..." "Step $($doneSteps+1)/$totalSteps"
                                 } elseif ($statusStr -match 'I') {
                                     $installed++
                                     $filled = [int]($installed / $count * $barWidth)
@@ -831,15 +831,15 @@ $sync.WorkerScript = {
                                     $pct    = $stepBase + [int]($stepSize * 0.5 + $installed / $count * $stepSize * 0.5)
                                     $uTitle = if ($qItem.Title.Length -gt 35) { $qItem.Title.Substring(0,35) + "..." } else { $qItem.Title }
                                     Write-UILog "  [IN $bar] $installed/$count  $uTitle"
-                                    Set-UIProgress $pct "Install $installed/$count..." "Schritt $($doneSteps+1)/$totalSteps"
+                                    Set-UIProgress $pct "Installing $installed/$count..." "Step $($doneSteps+1)/$totalSteps"
                                 }
                             }
-                            # Fallback-Anzeige wenn kein neues Item (z.B. haengender Update)
+                            # Fallback display when no new item (e.g. stuck update)
                             $dispPct = [Math]::Min($stepBase + [int]($instElap / $instMax * $stepSize), 99)
-                            Set-UIProgress $dispPct "Updates laufen... ($instElap s)" "Schritt $($doneSteps+1)/$totalSteps"
+                            Set-UIProgress $dispPct "Updates running... ($instElap s)" "Step $($doneSteps+1)/$totalSteps"
                         }
 
-                        # Queue final leeren
+                        # Drain queue
                         while ($instQueue.TryDequeue([ref]$qItem)) {
                             $statusStr = "$($qItem.Status)"
                             if ($statusStr -match 'I') { $installed++ }
@@ -850,65 +850,65 @@ $sync.WorkerScript = {
                         try { $instPs.Dispose(); $instRs.Close(); $instRs.Dispose() } catch {}
 
                         if (-not $instSync.Done) {
-                            Write-UILog "Update-Timeout nach $($instMax / 60) Min - Update haengt (Neustart wird trotzdem geplant)" "WARN"
+                            Write-UILog "Update timeout after $($instMax / 60) min - update stuck (restart will still be scheduled)" "WARN"
                         }
                         if ($instSync.Error) {
-                            Write-UILog "Install-Fehler: $($instSync.Error)" "ERROR"
+                            Write-UILog "Install error: $($instSync.Error)" "ERROR"
                         }
-                        Write-UILog "$count Update(s) verarbeitet ($([int]((Get-Date)-$stepStart).TotalSeconds)s)" "OK"
+                        Write-UILog "$count update(s) processed ($([int]((Get-Date)-$stepStart).TotalSeconds)s)" "OK"
                         $updatesInstalled = $true
                         $okCount++
                     }
-                    # Kein Update gefunden: trotzdem Reboot ausstehend?
+                    # No update found: restart pending anyway?
                     if (-not $updatesInstalled) {
                         try {
                             $rebootNeeded = (Get-WURebootStatus -Silent -ErrorAction SilentlyContinue)
                             if ($rebootNeeded) {
-                                Write-UILog "Neustart ausstehend (Updates warten auf Installation)" "OK"
+                                Write-UILog "Restart pending (updates waiting to be installed)" "OK"
                                 $updatesInstalled = $true
                             }
                         } catch {}
                         if (-not $updatesInstalled) {
-                            Write-UILog "Keine ausstehenden Updates" "OK"
+                            Write-UILog "No pending updates" "OK"
                         }
                         $okCount++
                     }
                 } catch {
-                    Write-UILog "Fehler Updates: $_" "ERROR"
+                    Write-UILog "Error updates: $_" "ERROR"
                     $errCount++
                     $failedStepNames.Add("Windows Updates")
                 }
             } else {
-                Write-UILog "PSWindowsUpdate nicht verfuegbar" "ERROR"
+                Write-UILog "PSWindowsUpdate not available" "ERROR"
                 $errCount++
                 $failedStepNames.Add("Windows Updates")
             }
             $doneSteps++
         }
 
-        Set-UIProgress 100 "Abgeschlossen" ""
+        Set-UIProgress 100 "Done" ""
 
-        # Neustart-Entscheidung:
-        # - Updates installiert           -> immer neu starten
-        # - Erster Durchlauf (kein AutoRun) -> Sicherheits-Neustart auch ohne Updates
-        # - AutoRun-Durchlauf, keine Updates -> fertig
+        # Restart decision:
+        # - Updates installed           -> always restart
+        # - First run (no AutoRun)      -> safety restart even without updates
+        # - AutoRun pass, no updates    -> finished
         $doRestart = $updatesInstalled -or (-not $sync.AutoRun)
 
         if ($doRestart) {
             if ($updatesInstalled) {
-                Write-UILog "Updates installiert - registriere Auto-Neustart..."
+                Write-UILog "Updates installed - registering auto-restart..."
             } else {
-                Write-UILog "Erster Durchlauf abgeschlossen - Sicherheits-Neustart + Update-Scan..." "OK"
+                Write-UILog "First run complete - safety restart + update scan..." "OK"
             }
             Register-AutoRunTask
-            Write-UILog "Neustart in 15 Sekunden..." "OK"
+            Write-UILog "Restarting in 15 seconds..." "OK"
 
             # Countdown
             for ($i = 15; $i -ge 1; $i--) {
                 $ii = $i
                 $sync.Window.Dispatcher.Invoke([action]{
-                    $sync.txtFooter.Text   = "Neustart in $ii Sekunden..."
-                    $sync.btnStart.Content = "Jetzt neu starten"
+                    $sync.txtFooter.Text   = "Restarting in $ii seconds..."
+                    $sync.btnStart.Content = "Restart now"
                     $sync.btnStart.IsEnabled = $true
                 }, "Normal")
                 Start-Sleep -Seconds 1
@@ -916,9 +916,9 @@ $sync.WorkerScript = {
             shutdown.exe /r /t 0
 
         } else {
-            # AutoRun-Durchlauf, keine Updates mehr -> fertig!
+            # AutoRun pass, no more updates -> done!
             Remove-AutoRunTask
-            Write-UILog "=== Laptop bereit! ===" "OK"
+            Write-UILog "=== Laptop ready! ===" "OK"
 
             $runCount   = $sync.RunCount
             $logFile    = $sync.LogFile
@@ -928,11 +928,11 @@ $sync.WorkerScript = {
             if ($errCount -gt 0) {
                 $uniqueFailed = ($failedStepNames | Select-Object -Unique)
                 $failedLines  = ($uniqueFailed | ForEach-Object { "  - $_" }) -join "`n"
-                $summaryLine  = "$okCount OK  |  $errCount Fehler:`n$failedLines"
+                $summaryLine  = "$okCount OK  |  $errCount error(s):`n$failedLines"
             } else {
-                $summaryLine  = "Alle $okCount Schritte erfolgreich"
+                $summaryLine  = "All $okCount steps successful"
             }
-            $detailsText = "$summaryLine`n`n$runCount Durchlauf/Durchlaeufe`nLog: $logFile"
+            $detailsText = "$summaryLine`n`n$runCount run(s)`nLog: $logFile"
 
             $sync.Window.Dispatcher.Invoke([action]{
                 $conv = [Windows.Media.BrushConverter]::new()
@@ -949,15 +949,15 @@ $sync.WorkerScript = {
         Add-Content -Path $sync.LogFile -Value "[CRASH] $err" -ErrorAction SilentlyContinue
         $sync.Window.Dispatcher.Invoke([action]{
             $sync.txtLog.Text    += "[CRASH] $err`n"
-            $sync.txtStatus.Text  = "Fehler - siehe Log"
+            $sync.txtStatus.Text  = "Error - see log"
             $sync.btnStart.IsEnabled = $true
         }, "Normal")
     }
 }
 
-# Button: Setup starten / Neu starten
+# Button: Start setup / Restart now
 $sync.btnStart.Add_Click({
-    if ($sync.btnStart.Content -eq "Jetzt neu starten") {
+    if ($sync.btnStart.Content -eq "Restart now") {
         shutdown.exe /r /t 0
         return
     }
@@ -996,26 +996,26 @@ $sync.btnStart.Add_Click({
     [void]$ps.BeginInvoke()
 })
 
-# Fertig-View: Log oeffnen
+# Done view: open log
 $sync.btnDoneOpenLog.Add_Click({
     if (Test-Path $sync.LogFile) {
         Start-Process notepad.exe $sync.LogFile
     }
 })
 
-# Fertig-View: Schliessen-Button
+# Done view: close button
 $sync.btnDoneClose.Add_Click({
     $sync.Window.Close()
 })
 
-# AutoRun: sofort loslegen
+# AutoRun: start immediately
 if ($sync.AutoRun) {
     $sync.btnStart.RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Button]::ClickEvent))
 }
 
 if ($sync.CopiedFromUsb) {
-    $sync.txtLog.Text = "[OK] Dateien nach C:\ProgramData\SmartbarSetup kopiert`n[>>] Stick kann jetzt entfernt werden`n`n"
-    $sync.txtFooter.Text = "Stick kann entfernt werden"
+    $sync.txtLog.Text = "[OK] Files copied to C:\ProgramData\SmartbarSetup`n[>>] USB drive can now be removed`n`n"
+    $sync.txtFooter.Text = "USB drive can be removed"
 }
 
 
