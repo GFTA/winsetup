@@ -1,6 +1,6 @@
 # Startklar Setup
 
-Automated Windows laptop setup tool for Smartbar devices. Double-click to run the following steps:
+Designed to set up multiple machines quickly and consistently from a single USB stick. Double-click to run the following steps:
 
 - Connect to Wi-Fi (WPA2, profile is created automatically)
 - Install Windows Updates (BIOS/firmware updates are skipped)
