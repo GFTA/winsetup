@@ -91,10 +91,10 @@ Set-Content $counterFile $sync.RunCount
     MinWidth="900" MinHeight="620"
     WindowStartupLocation="CenterScreen"
     ResizeMode="CanResize"
-    Background="#1e1e2e">
+    Background="#2b2b2b">
     <Window.Resources>
         <Style TargetType="CheckBox">
-            <Setter Property="Foreground" Value="#6c7086"/>
+            <Setter Property="Foreground" Value="#9a9a9a"/>
             <Setter Property="FontSize" Value="13"/>
             <Setter Property="Margin" Value="0,3,0,3"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
@@ -104,10 +104,10 @@ Set-Content $counterFile $sync.RunCount
                     <ControlTemplate TargetType="CheckBox">
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                             <Border x:Name="chkBox" Width="16" Height="16" CornerRadius="3"
-                                    Background="#313244" BorderBrush="#45475a" BorderThickness="1.5"
+                                    Background="#3a3a3a" BorderBrush="#555555" BorderThickness="1.5"
                                     VerticalAlignment="Center">
                                 <TextBlock x:Name="chkMark" Text="&#x2714;" FontSize="10" FontWeight="Bold"
-                                           Foreground="#a6e3a1" HorizontalAlignment="Center"
+                                           Foreground="#89b4fa" HorizontalAlignment="Center"
                                            VerticalAlignment="Center" Visibility="Collapsed"/>
                             </Border>
                             <ContentPresenter Margin="8,0,0,0" VerticalAlignment="Center"
@@ -117,17 +117,17 @@ Set-Content $counterFile $sync.RunCount
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsChecked" Value="True">
                                 <Setter TargetName="chkMark" Property="Visibility" Value="Visible"/>
-                                <Setter TargetName="chkBox" Property="BorderBrush" Value="#a6e3a1"/>
-                                <Setter TargetName="chkBox" Property="Background" Value="#1e3a2a"/>
-                                <Setter Property="Foreground" Value="#a6e3a1"/>
+                                <Setter TargetName="chkBox" Property="BorderBrush" Value="#89b4fa"/>
+                                <Setter TargetName="chkBox" Property="Background" Value="#1a2a40"/>
+                                <Setter Property="Foreground" Value="#89b4fa"/>
                             </Trigger>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="chkBox" Property="BorderBrush" Value="#89b4fa"/>
+                                <Setter TargetName="chkBox" Property="BorderBrush" Value="#b4befe"/>
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
-                                <Setter TargetName="chkBox" Property="BorderBrush" Value="#313244"/>
-                                <Setter TargetName="chkMark" Property="Foreground" Value="#45475a"/>
-                                <Setter Property="Foreground" Value="#45475a"/>
+                                <Setter TargetName="chkBox" Property="BorderBrush" Value="#3a3a3a"/>
+                                <Setter TargetName="chkMark" Property="Foreground" Value="#555555"/>
+                                <Setter Property="Foreground" Value="#555555"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -171,7 +171,7 @@ Set-Content $counterFile $sync.RunCount
             </Grid.ColumnDefinitions>
 
             <!-- Left side: Options -->
-            <Border Grid.Column="0" Background="#181825">
+            <Border Grid.Column="0" Background="#222222">
                 <Grid Margin="24">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -185,14 +185,14 @@ Set-Content $counterFile $sync.RunCount
                     <StackPanel Grid.Row="0" Margin="0,0,0,24">
                         <DockPanel>
                             <TextBlock Text="Smartbar Setup" FontSize="20" FontWeight="Bold" Foreground="#89b4fa"/>
-                            <TextBlock x:Name="txtVersion" Text="" FontSize="11" Foreground="#45475a" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,0,2"/>
+                            <TextBlock x:Name="txtVersion" Text="" FontSize="11" Foreground="#666666" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,0,2"/>
                         </DockPanel>
-                        <TextBlock x:Name="txtRunCount" Text="" FontSize="11" Foreground="#6c7086" Margin="0,2,0,0"/>
+                        <TextBlock x:Name="txtRunCount" Text="" FontSize="11" Foreground="#777777" Margin="0,2,0,0"/>
                     </StackPanel>
 
                     <!-- Checkboxes -->
                     <StackPanel Grid.Row="1" Margin="0,0,0,24">
-                        <TextBlock Text="STEPS" FontSize="10" Foreground="#6c7086" FontWeight="Bold" Margin="0,0,0,10"/>
+                        <TextBlock Text="STEPS" FontSize="10" Foreground="#777777" FontWeight="Bold" Margin="0,0,0,10"/>
                         <CheckBox x:Name="chkWifi"     Content="Connect Wi-Fi" IsChecked="True"/>
                         <CheckBox x:Name="chkUpdates"  Content="Windows Updates" IsChecked="True"/>
                         <CheckBox x:Name="chkEnergy"   Content="Power settings" IsChecked="True"/>
@@ -214,11 +214,11 @@ Set-Content $counterFile $sync.RunCount
                     <!-- Progress -->
                     <StackPanel Grid.Row="2" VerticalAlignment="Bottom" Margin="0,0,0,20">
                         <DockPanel Margin="0,0,0,8">
-                            <TextBlock x:Name="txtStatus" Text="Ready" FontSize="13" Foreground="#cdd6f4" VerticalAlignment="Center"/>
-                            <TextBlock x:Name="txtStep" Text="" FontSize="11" Foreground="#6c7086" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                            <TextBlock x:Name="txtStatus" Text="Ready" FontSize="13" Foreground="#dddddd" VerticalAlignment="Center"/>
+                            <TextBlock x:Name="txtStep" Text="" FontSize="11" Foreground="#777777" HorizontalAlignment="Right" VerticalAlignment="Center"/>
                         </DockPanel>
                         <ProgressBar x:Name="progressBar" Height="8" Minimum="0" Maximum="100" Value="0"
-                                     Background="#313244" Foreground="#89b4fa" BorderThickness="0">
+                                     Background="#3a3a3a" Foreground="#89b4fa" BorderThickness="0">
                             <ProgressBar.Template>
                                 <ControlTemplate TargetType="ProgressBar">
                                     <Border Background="{TemplateBinding Background}" CornerRadius="4">
@@ -234,31 +234,31 @@ Set-Content $counterFile $sync.RunCount
 
                     <!-- Button + Footer -->
                     <Button x:Name="btnStart" Grid.Row="3" Content="Start setup" Margin="0,0,0,10"/>
-                    <TextBlock x:Name="txtFooter" Grid.Row="4" Text="" FontSize="10" Foreground="#6c7086" HorizontalAlignment="Center" TextWrapping="Wrap"/>
+                    <TextBlock x:Name="txtFooter" Grid.Row="4" Text="" FontSize="10" Foreground="#777777" HorizontalAlignment="Center" TextWrapping="Wrap"/>
                 </Grid>
             </Border>
 
             <!-- Right side: Log -->
-            <Border Grid.Column="1" Background="#11111b" Margin="0">
+            <Border Grid.Column="1" Background="#1e1e1e" Margin="0">
                 <ScrollViewer x:Name="logScroller" VerticalScrollBarVisibility="Auto" Margin="0">
                     <TextBlock x:Name="txtLog" FontFamily="Consolas" FontSize="13"
-                               Foreground="#cdd6f4" Padding="20,16" TextWrapping="Wrap"/>
+                               Foreground="#cccccc" Padding="20,16" TextWrapping="Wrap"/>
                 </ScrollViewer>
             </Border>
         </Grid>
 
         <!-- Done view (visible at the end) -->
-        <Grid x:Name="viewDone" Visibility="Collapsed" Background="#1e1e2e">
+        <Grid x:Name="viewDone" Visibility="Collapsed" Background="#2b2b2b">
             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
                 <TextBlock x:Name="txtDoneCheck" Text="&#10003;" FontSize="80" Foreground="#a6e3a1" HorizontalAlignment="Center"/>
                 <TextBlock x:Name="txtDoneTitle" Text="Laptop ready!" FontSize="32" FontWeight="Bold" Foreground="#a6e3a1"
                            HorizontalAlignment="Center" Margin="0,8,0,4"/>
-                <TextBlock x:Name="txtDoneDetails" Text="" FontSize="14" Foreground="#6c7086"
+                <TextBlock x:Name="txtDoneDetails" Text="" FontSize="14" Foreground="#888888"
                            HorizontalAlignment="Center" Margin="0,0,0,32" TextAlignment="Center"/>
                 <Button x:Name="btnDoneOpenLog" Content="Open log" Width="200"
-                        Background="#313244" Foreground="#cdd6f4" Margin="0,0,0,8"/>
+                        Background="#3a3a3a" Foreground="#dddddd" Margin="0,0,0,8"/>
                 <Button x:Name="btnDoneClose" Content="Close window" Width="200"
-                        Background="#45475a" Foreground="#cdd6f4"/>
+                        Background="#4a4a4a" Foreground="#dddddd"/>
             </StackPanel>
         </Grid>
     </Grid>
