@@ -1,0 +1,29 @@
+{
+    "WLAN": {
+        "SSID": "Demopos",
+        "Password": "CHANGE_ME"
+    },
+    "Autostart": [
+        {
+            "ID":    "OneDrive",
+            "Keys":  ["OneDrive"],
+            "Tasks": ["\\Microsoft\\Windows\\OneDrive\\OneDrive Startup Task"]
+        },
+        {
+            "ID":    "PhoneLink",
+            "Keys":  ["YourPhone", "PhoneLink"],
+            "Tasks": []
+        },
+        {
+            "ID":    "Xbox",
+            "Keys":  ["GameBarElevatedFT_Pace"],
+            "Tasks": ["\\Microsoft\\XblGameSave\\XblGameSaveTask"]
+        },
+        {
+            "ID":    "Copilot",
+            "Keys":  ["Microsoft Copilot", "MicrosoftCopilot"],
+            "Tasks": []
+        }
+    ],
+    "UpdateSkipPattern": "BIOS|Firmware|System Firmware"
+}
