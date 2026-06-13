@@ -22,7 +22,9 @@ if ($usbDir -ne $LocalDir) {
     }
     $progSrc = Join-Path $usbDir "Programs"
     if (Test-Path $progSrc) {
-        Copy-Item $progSrc (Join-Path $LocalDir "Programs") -Recurse -Force
+        $progDst = Join-Path $LocalDir "Programs"
+        New-Item -ItemType Directory $progDst -Force | Out-Null
+        Copy-Item "$progSrc\*" $progDst -Recurse -Force
     }
     $sync.CopiedFromUsb = $true
 }
@@ -34,24 +36,21 @@ if (-not $rawSN -or $rawSN -match "Default|To Be Filled|Not Specified|^$") { $ra
 $sync.DeviceSN    = $rawSN.Trim() -replace '[\\/:*?"<>| ]', '_'
 $sync.DeviceModel = if ($rawModel) { $rawModel.Trim() } else { "Unknown model" }
 
-# Log destination: USB drive only (not on customer device)
+# Log destination: always local
 $sourcePathFile = Join-Path $LocalDir "source_path.txt"
 if ($usbDir -ne $LocalDir) {
-    # Started from USB/source: save path for AutoRun passes
     Set-Content $sourcePathFile $usbDir -Encoding UTF8
     $logSource = $usbDir
 } elseif (Test-Path $sourcePathFile) {
-    # AutoRun pass: read saved USB path
     $saved = (Get-Content $sourcePathFile -Raw -ErrorAction SilentlyContinue).Trim()
     $logSource = if ($saved -and (Test-Path $saved)) { $saved } else { $LocalDir }
 } else {
     $logSource = $LocalDir
 }
 
-# From now on always work from LocalDir
 $sync.ScriptDir   = $LocalDir
 $sync.ProgramsDir = Join-Path $LocalDir "Programs"
-$sync.LogDir      = Join-Path $LocalDir "Logs"   # always local
+$sync.LogDir      = Join-Path $LocalDir "Logs"
 
 # Load config (WLAN, Autostart, ...)
 $configFile = Join-Path $LocalDir "config.json"
@@ -64,7 +63,7 @@ $sync.WlanPass           = if ($_cfg -and $_cfg.WLAN -and $_cfg.WLAN.Password) {
 $sync.AutostartEntries   = if ($_cfg -and $_cfg.Autostart)                     { $_cfg.Autostart }           else { @() }
 $sync.UpdateSkipPattern  = if ($_cfg -and $_cfg.UpdateSkipPattern)             { $_cfg.UpdateSkipPattern }   else { "BIOS|Firmware|System Firmware" }
 if (-not (Test-Path $sync.LogDir)) { New-Item -ItemType Directory -Path $sync.LogDir | Out-Null }
-$sync.LogFile         = Join-Path $sync.LogDir "$(Get-Date -Format 'yyyy-MM-dd')_$($sync.DeviceSN).txt"
+$sync.LogFile = Join-Path $sync.LogDir "$(Get-Date -Format 'yyyy-MM-dd')_$($sync.DeviceSN).txt"
 
 # Delete logs older than 30 days
 Get-ChildItem $sync.LogDir -Filter "*.txt" -ErrorAction SilentlyContinue |
@@ -73,7 +72,7 @@ Get-ChildItem $sync.LogDir -Filter "*.txt" -ErrorAction SilentlyContinue |
 $sync.AutoRun  = $AutoRun.IsPresent
 $sync.TaskName = "SmartbarSetup"
 
-# Run counter (local, not on USB)
+# Run counter
 $counterFile = Join-Path $sync.ScriptDir "setup_run.tmp"
 if (Test-Path $counterFile) {
     $sync.RunCount = [int](Get-Content $counterFile -Raw) + 1
@@ -278,8 +277,8 @@ $sync.chkEnergy     = $sync.Window.FindName("chkEnergy")
 $sync.chkCalman     = $sync.Window.FindName("chkCalman")
 $sync.chkOneDrive         = $sync.Window.FindName("chkOneDrive")
 $sync.btnAutostartToggle  = $sync.Window.FindName("btnAutostartToggle")
-$sync.ArrowRight = " " + [char]0x25B6   # ▶
-$sync.ArrowDown  = " " + [char]0x25BC   # ▼
+$sync.ArrowRight = " " + [char]0x25B6
+$sync.ArrowDown  = " " + [char]0x25BC
 $sync.btnAutostartToggle.Text = $sync.ArrowRight
 $sync.pnlAutostart        = $sync.Window.FindName("pnlAutostart")
 $sync.chkAutoOneDrive  = $sync.Window.FindName("chkAutoOneDrive")
@@ -392,7 +391,7 @@ $sync.WorkerScript = {
         Write-UILog "Auto-restart removed"
         $counterFile = Join-Path $sync.ScriptDir "setup_run.tmp"
         if (Test-Path $counterFile) { Remove-Item $counterFile -Force }
-        # Automatically delete setup folder on next login (RunOnce)
+        # Delete setup folder on next login (RunOnce)
         $cleanCmd = "cmd /c rmdir /s /q `"$($sync.ScriptDir)`""
         reg.exe add "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\RunOnce" /v "SmartbarCleanup" /t REG_SZ /d $cleanCmd /f | Out-Console
     }
@@ -419,10 +418,8 @@ $sync.WorkerScript = {
             Set-UIProgress ([int]($doneSteps / $totalSteps * 100)) "Connecting to Wi-Fi..." "Step $($doneSteps+1)/$totalSteps"
             Write-UILog "Connecting to Wi-Fi $($sync.WlanSSID)..."
             try {
-                $ssidPattern = [regex]::Escape($sync.WlanSSID)
-
-                # Already connected? Get-NetConnectionProfile is locale-independent and
-                # more reliable than netsh text parsing (no BSSID/encoding issue)
+                # Get-NetConnectionProfile is locale-independent and more reliable
+                # than netsh text parsing (no BSSID/encoding issue)
                 $alreadyConn = $false
                 try {
                     $alreadyConn = (Get-NetConnectionProfile -ErrorAction Stop).Name -contains $sync.WlanSSID
@@ -481,7 +478,6 @@ $sync.WorkerScript = {
                         Start-Sleep 3
                     }
 
-                    # Wait until connected
                     Write-UILog "Waiting for Wi-Fi connection..."
                     $maxWait   = 90
                     $waited    = 0
@@ -578,7 +574,7 @@ $sync.WorkerScript = {
                             Write-UILog "  $($prog.BaseName) installed ($($elapsed)s)" "OK"
                             $okCount++
                         } else {
-                            Write-UILog "  $($prog.BaseName) Exit Code: $($proc.ExitCode)" "ERROR"
+                            Write-UILog "  $($prog.BaseName) exit code: $($proc.ExitCode)" "ERROR"
                             $errCount++
                             $failedStepNames.Add("Program: $($prog.BaseName)")
                         }
@@ -602,7 +598,6 @@ $sync.WorkerScript = {
                 $runKey  = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run"
                 $runKeyL = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run"
 
-                # Checkbox flags: which groups are active?
                 $flagMap = @{
                     "OneDrive"  = $sync.DoAutoOneDrive
                     "PhoneLink" = $sync.DoAutoPhoneLink
@@ -675,7 +670,7 @@ $sync.WorkerScript = {
                 Set-ItemProperty $telPath2 -Name "AllowTelemetry" -Value 1 -Force
                 Write-UILog "  Telemetry set to minimum"
 
-                # Performance mode: activate and set High performance
+                # High performance power plan
                 # GUID 8c5e7fda = High performance; e9a42b02 = Ultimate performance (desktop only)
                 $perfGuid = "8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c"
                 powercfg /setactive $perfGuid 2>$null | Out-Console
@@ -684,7 +679,7 @@ $sync.WorkerScript = {
                     powercfg /duplicatescheme $perfGuid 2>$null | Out-Console
                     powercfg /setactive $perfGuid 2>$null | Out-Console
                 }
-                Write-UILog "  Power mode: High performance activated"
+                Write-UILog "  High performance activated"
 
                 Write-UILog "Windows optimized ($([int]((Get-Date)-$stepStart).TotalSeconds)s)" "OK"
                 $okCount++
@@ -703,10 +698,8 @@ $sync.WorkerScript = {
 
             # Internet check
             Write-UILog "Checking internet connection..."
-            $online = $false
             try {
                 $null = [System.Net.WebClient]::new().DownloadString("http://www.msftconnecttest.com/connecttest.txt")
-                $online = $true
                 Write-UILog "Internet connection OK" "OK"
             } catch {
                 Write-UILog "NO INTERNET - Windows Updates cannot be installed!" "ERROR"
@@ -730,6 +723,11 @@ $sync.WorkerScript = {
                 try {
                     Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Scope CurrentUser | Out-Console
                     Install-Module -Name PSWindowsUpdate -Force -Scope CurrentUser -AllowClobber | Out-Console
+                    # Refresh module path so Get-Module finds the new module immediately
+                    $userModPath = Join-Path ([Environment]::GetFolderPath("MyDocuments")) "WindowsPowerShell\Modules"
+                    if ($env:PSModulePath -notmatch [regex]::Escape($userModPath)) {
+                        $env:PSModulePath = $userModPath + ";" + $env:PSModulePath
+                    }
                     Write-UILog "PSWindowsUpdate installed" "OK"
                 } catch {
                     Write-UILog "Error PSWindowsUpdate: $_" "ERROR"
@@ -737,11 +735,46 @@ $sync.WorkerScript = {
             }
             if (Get-Module -ListAvailable -Name PSWindowsUpdate) {
                 Import-Module PSWindowsUpdate
-                Write-UILog "Searching for updates..."
+                Write-UILog "Searching for updates (this may take a few minutes)..."
                 $stepStart = Get-Date
+
+                # Run scan in a separate runspace with timeout to prevent infinite hang
+                $scanSync = [hashtable]::Synchronized(@{ Done = $false; Result = $null; Error = $null })
+                $scanRs   = [runspacefactory]::CreateRunspace()
+                $scanRs.ApartmentState = "STA"
+                $scanRs.Open()
+                $scanRs.SessionStateProxy.SetVariable("sc", $scanSync)
+                $scanPs = [powershell]::Create()
+                $scanPs.Runspace = $scanRs
+                [void]$scanPs.AddScript({
+                    try {
+                        Import-Module PSWindowsUpdate -Force -ErrorAction SilentlyContinue
+                        $sc.Result = @(Get-WindowsUpdate -AcceptAll -IgnoreReboot -MicrosoftUpdate -ErrorAction SilentlyContinue)
+                    } catch { $sc.Error = $_.ToString() }
+                    $sc.Done = $true
+                })
+                [void]$scanPs.BeginInvoke()
+
+                $scanMax  = 1200   # 20 min timeout for scan
+                $scanElap = 0
+                while (-not $scanSync.Done -and $scanElap -lt $scanMax) {
+                    Start-Sleep 3; $scanElap += 3
+                    $pct = [Math]::Min([int]($doneSteps / $totalSteps * 100) + 2, 99)
+                    Set-UIProgress $pct "Searching for updates... ($scanElap s)" "Step $($doneSteps+1)/$totalSteps"
+                }
+                try { $scanPs.Stop() } catch {}
+                try { $scanPs.Dispose(); $scanRs.Close(); $scanRs.Dispose() } catch {}
+
+                if (-not $scanSync.Done) {
+                    Write-UILog "Update scan timeout after $($scanMax/60) min" "WARN"
+                }
+                if ($scanSync.Error) {
+                    Write-UILog "Scan error: $($scanSync.Error)" "ERROR"
+                }
+
                 try {
                     $skipPat  = $sync.UpdateSkipPattern
-                    $allFound = @(Get-WindowsUpdate -AcceptAll -IgnoreReboot -ErrorAction SilentlyContinue)
+                    $allFound = if ($scanSync.Result) { @($scanSync.Result) } else { @() }
                     $skipped  = @($allFound | Where-Object { $_.Title -match $skipPat })
                     $updates  = @($allFound | Where-Object { $_.Title -notmatch $skipPat })
 
@@ -772,8 +805,8 @@ $sync.WorkerScript = {
                         $installed  = 0
                         $barWidth   = 24
 
-                        # Installation in a separate Runspace with timeout
-                        # BIOS/Firmware already filtered out - remaining updates (incl. .NET) get 15 min
+                        # Installation in a separate runspace with timeout
+                        # BIOS/Firmware already filtered out - remaining updates get 15 min
                         $instQueue = [System.Collections.Concurrent.ConcurrentQueue[object]]::new()
                         $instSync  = [hashtable]::Synchronized(@{ Done = $false; Error = $null })
 
@@ -791,10 +824,10 @@ $sync.WorkerScript = {
                             try {
                                 Import-Module PSWindowsUpdate -Force -ErrorAction SilentlyContinue
                                 if ($kbs -and $kbs.Count -gt 0) {
-                                    Install-WindowsUpdate -KBArticleID $kbs -AcceptAll -IgnoreReboot -Confirm:$false |
+                                    Install-WindowsUpdate -KBArticleID $kbs -AcceptAll -IgnoreReboot -MicrosoftUpdate -Confirm:$false |
                                         ForEach-Object { $q.Enqueue($_) }
                                 } else {
-                                    Install-WindowsUpdate -AcceptAll -IgnoreReboot -Confirm:$false -NotTitle $skip |
+                                    Install-WindowsUpdate -AcceptAll -IgnoreReboot -MicrosoftUpdate -Confirm:$false -NotTitle $skip |
                                         ForEach-Object { $q.Enqueue($_) }
                                 }
                             } catch {
@@ -804,46 +837,50 @@ $sync.WorkerScript = {
                         })
                         [void]$instPs.BeginInvoke()
 
-                        $instMax  = 900   # 15 minute timeout (e.g. large .NET updates)
+                        $instMax  = 900   # 15 min timeout (e.g. large .NET updates)
                         $instElap = 0
                         $qItem    = $null
 
                         while (-not $instSync.Done -and $instElap -lt $instMax) {
                             Start-Sleep 2; $instElap += 2
+                            $gotItem = $false
                             while ($instQueue.TryDequeue([ref]$qItem)) {
+                                $gotItem   = $true
                                 $statusStr = "$($qItem.Status)"
                                 if ($statusStr -match '[DI]') {
                                     try { [Console]::WriteLine("  [$statusStr] $($qItem.Title)") } catch {}
                                 }
-                                if ($statusStr -match 'D' -and $statusStr -notmatch 'I') {
+                                if ($statusStr -match 'Downloaded' -or ($statusStr -match 'D' -and $statusStr -notmatch 'Install')) {
                                     $downloaded++
-                                    $filled = [int]($downloaded / $count * $barWidth)
+                                    $filled = [Math]::Min([int]($downloaded / $count * $barWidth), $barWidth)
                                     $bar    = ('#' * $filled) + ('-' * ($barWidth - $filled))
-                                    $pct    = $stepBase + [int]($downloaded / $count * $stepSize * 0.5)
+                                    $pct    = $stepBase + [int]([Math]::Min($downloaded, $count) / $count * $stepSize * 0.5)
                                     $uTitle = if ($qItem.Title.Length -gt 35) { $qItem.Title.Substring(0,35) + "..." } else { $qItem.Title }
-                                    Write-UILog "  [DL $bar] $downloaded/$count  $uTitle"
-                                    Set-UIProgress $pct "Downloading $downloaded/$count..." "Step $($doneSteps+1)/$totalSteps"
-                                } elseif ($statusStr -match 'I') {
+                                    Write-UILog "  [DL $bar] $([Math]::Min($downloaded,$count))/$count  $uTitle"
+                                    Set-UIProgress $pct "Downloading $([Math]::Min($downloaded,$count))/$count..." "Step $($doneSteps+1)/$totalSteps"
+                                } elseif ($statusStr -match 'Install') {
                                     $installed++
-                                    $filled = [int]($installed / $count * $barWidth)
+                                    $filled = [Math]::Min([int]($installed / $count * $barWidth), $barWidth)
                                     $bar    = ('#' * $filled) + ('-' * ($barWidth - $filled))
-                                    try { [Console]::WriteLine("  [$bar] $installed/$count") } catch {}
-                                    $pct    = $stepBase + [int]($stepSize * 0.5 + $installed / $count * $stepSize * 0.5)
+                                    try { [Console]::WriteLine("  [$bar] $([Math]::Min($installed,$count))/$count") } catch {}
+                                    $pct    = $stepBase + [int]($stepSize * 0.5 + [Math]::Min($installed,$count) / $count * $stepSize * 0.5)
                                     $uTitle = if ($qItem.Title.Length -gt 35) { $qItem.Title.Substring(0,35) + "..." } else { $qItem.Title }
-                                    Write-UILog "  [IN $bar] $installed/$count  $uTitle"
-                                    Set-UIProgress $pct "Installing $installed/$count..." "Step $($doneSteps+1)/$totalSteps"
+                                    Write-UILog "  [IN $bar] $([Math]::Min($installed,$count))/$count  $uTitle"
+                                    Set-UIProgress $pct "Installing $([Math]::Min($installed,$count))/$count..." "Step $($doneSteps+1)/$totalSteps"
                                 }
                             }
-                            # Fallback display when no new item (e.g. stuck update)
-                            $dispPct = [Math]::Min($stepBase + [int]($instElap / $instMax * $stepSize), 99)
-                            Set-UIProgress $dispPct "Updates running... ($instElap s)" "Step $($doneSteps+1)/$totalSteps"
+                            # Fallback display only when no new item arrived (e.g. stuck download)
+                            if (-not $gotItem) {
+                                $dispPct = [Math]::Min($stepBase + [int]($instElap / $instMax * $stepSize), 99)
+                                Set-UIProgress $dispPct "Updates running... ($instElap s)" "Step $($doneSteps+1)/$totalSteps"
+                            }
                         }
 
                         # Drain queue
                         while ($instQueue.TryDequeue([ref]$qItem)) {
                             $statusStr = "$($qItem.Status)"
-                            if ($statusStr -match 'I') { $installed++ }
-                            if ($statusStr -match 'D' -and $statusStr -notmatch 'I') { $downloaded++ }
+                            if ($statusStr -match 'Install') { $installed++ }
+                            if ($statusStr -match 'Downloaded' -or ($statusStr -match 'D' -and $statusStr -notmatch 'Install')) { $downloaded++ }
                         }
 
                         try { $instPs.Stop() } catch {}
@@ -859,7 +896,7 @@ $sync.WorkerScript = {
                         $updatesInstalled = $true
                         $okCount++
                     }
-                    # No update found: restart pending anyway?
+                    # No updates found: restart still pending?
                     if (-not $updatesInstalled) {
                         try {
                             $rebootNeeded = (Get-WURebootStatus -Silent -ErrorAction SilentlyContinue)
@@ -877,6 +914,9 @@ $sync.WorkerScript = {
                     Write-UILog "Error updates: $_" "ERROR"
                     $errCount++
                     $failedStepNames.Add("Windows Updates")
+                    # In AutoRun mode restart anyway - error may be transient,
+                    # and updates may have been (partially) installed already
+                    if ($sync.AutoRun) { $updatesInstalled = $true }
                 }
             } else {
                 Write-UILog "PSWindowsUpdate not available" "ERROR"
@@ -889,9 +929,9 @@ $sync.WorkerScript = {
         Set-UIProgress 100 "Done" ""
 
         # Restart decision:
-        # - Updates installed           -> always restart
-        # - First run (no AutoRun)      -> safety restart even without updates
-        # - AutoRun pass, no updates    -> finished
+        # - Updates installed              -> always restart
+        # - First run (no AutoRun)         -> safety restart even without updates
+        # - AutoRun pass, no more updates  -> done
         $doRestart = $updatesInstalled -or (-not $sync.AutoRun)
 
         if ($doRestart) {
@@ -903,7 +943,6 @@ $sync.WorkerScript = {
             Register-AutoRunTask
             Write-UILog "Restarting in 15 seconds..." "OK"
 
-            # Countdown
             for ($i = 15; $i -ge 1; $i--) {
                 $ii = $i
                 $sync.Window.Dispatcher.Invoke([action]{
@@ -1017,6 +1056,5 @@ if ($sync.CopiedFromUsb) {
     $sync.txtLog.Text = "[OK] Files copied to C:\ProgramData\SmartbarSetup`n[>>] USB drive can now be removed`n`n"
     $sync.txtFooter.Text = "USB drive can be removed"
 }
-
 
 $sync.Window.ShowDialog() | Out-Null
