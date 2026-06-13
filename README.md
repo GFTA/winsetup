@@ -1,4 +1,4 @@
-# Startklar Setup
+# winsetup
 
 Automated Windows provisioning and update tool — deploys a consistent baseline across multiple machines from a single USB stick. Each run installs pending updates and restarts automatically until the machine is fully up to date.
 
@@ -37,7 +37,7 @@ Steps performed on each run:
 ## File structure
 
 ```
-Startklar Setup/
+winsetup/
 ├── Setup-Laptop.bat       # Entry point (double-click)
 ├── Setup-Laptop.ps1       # Main script
 ├── config.json            # Local configuration (not in repo)
