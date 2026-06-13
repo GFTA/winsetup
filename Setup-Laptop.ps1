@@ -735,6 +735,14 @@ $sync.WorkerScript = {
             }
             if (Get-Module -ListAvailable -Name PSWindowsUpdate) {
                 Import-Module PSWindowsUpdate
+                # Trigger Windows Update service before scanning so retry/pending updates
+                # are flushed back into the cache (important after a restart)
+                Write-UILog "Refreshing Windows Update service..."
+                try {
+                    Start-Service wuauserv -ErrorAction SilentlyContinue
+                    UsoClient.exe StartScan 2>$null
+                    Start-Sleep 15
+                } catch {}
                 Write-UILog "Searching for updates (this may take a few minutes)..."
                 $stepStart = Get-Date
 
@@ -893,18 +901,39 @@ $sync.WorkerScript = {
                             Write-UILog "Install error: $($instSync.Error)" "ERROR"
                         }
                         Write-UILog "$count update(s) processed ($([int]((Get-Date)-$stepStart).TotalSeconds)s)" "OK"
+                        # Sync Windows Update Settings app so it shows correct state
+                        try { UsoClient.exe RefreshSettings 2>$null } catch {}
                         $updatesInstalled = $true
                         $okCount++
                     }
-                    # No updates found: restart still pending?
+                    # No updates found: restart still pending or updates via WUA?
                     if (-not $updatesInstalled) {
+                        # 1) Check reboot status
                         try {
-                            $rebootNeeded = (Get-WURebootStatus -Silent -ErrorAction SilentlyContinue)
-                            if ($rebootNeeded) {
+                            if (Get-WURebootStatus -Silent -ErrorAction SilentlyContinue) {
                                 Write-UILog "Restart pending (updates waiting to be installed)" "OK"
                                 $updatesInstalled = $true
                             }
                         } catch {}
+
+                        # 2) Query Windows Update COM API directly - finds retry/stuck updates
+                        #    that PSWindowsUpdate sometimes misses
+                        if (-not $updatesInstalled) {
+                            try {
+                                $wuSession  = New-Object -ComObject Microsoft.Update.Session
+                                $wuSearcher = $wuSession.CreateUpdateSearcher()
+                                $wuResult   = $wuSearcher.Search("IsInstalled=0 and Type='Software' and IsHidden=0")
+                                $wuCount    = $wuResult.Updates.Count
+                                if ($wuCount -gt 0) {
+                                    Write-UILog "$wuCount update(s) found via Windows Update API - restarting for next attempt" "OK"
+                                    foreach ($u in $wuResult.Updates) { Write-UILog "  [WUA] $($u.Title)" }
+                                    $updatesInstalled = $true
+                                }
+                            } catch {
+                                Write-UILog "WUA check error: $_" "WARN"
+                            }
+                        }
+
                         if (-not $updatesInstalled) {
                             Write-UILog "No pending updates" "OK"
                         }
