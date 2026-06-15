@@ -63,6 +63,9 @@ $sync.WlanPass           = if ($_cfg -and $_cfg.WLAN -and $_cfg.WLAN.Password) {
 $sync.AutostartEntries   = if ($_cfg -and $_cfg.Autostart)                     { $_cfg.Autostart }           else { @() }
 $sync.UninstallEntries   = if ($_cfg -and $_cfg.Uninstall)                     { $_cfg.Uninstall }           else { @() }
 $sync.UpdateSkipPattern  = if ($_cfg -and $_cfg.UpdateSkipPattern)             { $_cfg.UpdateSkipPattern }   else { "BIOS|Firmware|System Firmware" }
+$sync.RegionTimeZone     = if ($_cfg -and $_cfg.Region -and $_cfg.Region.TimeZone) { $_cfg.Region.TimeZone }   else { "W. Europe Standard Time" }
+$sync.RegionGeoId        = if ($_cfg -and $_cfg.Region -and $_cfg.Region.GeoId)    { [int]$_cfg.Region.GeoId } else { 14 }
+$sync.RegionLocale       = if ($_cfg -and $_cfg.Region -and $_cfg.Region.Locale)   { $_cfg.Region.Locale }     else { "de-AT" }
 if (-not (Test-Path $sync.LogDir)) { New-Item -ItemType Directory -Path $sync.LogDir | Out-Null }
 $sync.LogFile = Join-Path $sync.LogDir "$(Get-Date -Format 'yyyy-MM-dd')_$($sync.DeviceSN).txt"
 
@@ -786,12 +789,12 @@ $sync.WorkerScript = {
                 Set-ItemProperty $edgePol -Name "StartupBoostEnabled"    -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue
                 Write-UILog "  Edge first-run disabled"
 
-                # Set timezone & region to Austria
-                Set-TimeZone "W. Europe Standard Time" -ErrorAction SilentlyContinue
-                Set-WinHomeLocation -GeoId 14 -ErrorAction SilentlyContinue
-                Set-WinSystemLocale -SystemLocale de-AT -ErrorAction SilentlyContinue
-                Set-Culture de-AT -ErrorAction SilentlyContinue
-                Write-UILog "  Timezone & region: Austria (de-AT)"
+                # Set timezone & region
+                Set-TimeZone $sync.RegionTimeZone -ErrorAction SilentlyContinue
+                Set-WinHomeLocation -GeoId $sync.RegionGeoId -ErrorAction SilentlyContinue
+                Set-WinSystemLocale -SystemLocale $sync.RegionLocale -ErrorAction SilentlyContinue
+                Set-Culture $sync.RegionLocale -ErrorAction SilentlyContinue
+                Write-UILog "  Timezone & region: $($sync.RegionLocale) ($($sync.RegionTimeZone))"
 
                 Write-UILog "Windows optimized ($([int]((Get-Date)-$stepStart).TotalSeconds)s)" "OK"
                 $okCount++

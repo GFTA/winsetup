@@ -31,5 +31,10 @@
         { "ID": "Xbox",       "Type": "Appx",     "Match": "Microsoft.Xbox*"          },
         { "ID": "McAfee",     "Type": "Registry", "Match": "McAfee"                   }
     ],
-    "UpdateSkipPattern": "BIOS|Firmware|System Firmware"
+    "UpdateSkipPattern": "BIOS|Firmware|System Firmware",
+    "Region": {
+        "TimeZone": "W. Europe Standard Time",
+        "GeoId":    14,
+        "Locale":   "de-AT"
+    }
 }
