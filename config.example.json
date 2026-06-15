@@ -25,5 +25,11 @@
             "Tasks": []
         }
     ],
+    "Uninstall": [
+        { "ID": "OneDrive",   "Type": "OneDrive"  },
+        { "ID": "PhoneLink",  "Type": "Appx",     "Match": "Microsoft.YourPhone*"     },
+        { "ID": "Xbox",       "Type": "Appx",     "Match": "Microsoft.Xbox*"          },
+        { "ID": "McAfee",     "Type": "Registry", "Match": "McAfee"                   }
+    ],
     "UpdateSkipPattern": "BIOS|Firmware|System Firmware"
 }

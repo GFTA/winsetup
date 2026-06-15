@@ -61,6 +61,7 @@ if (Test-Path $configFile) {
 $sync.WlanSSID           = if ($_cfg -and $_cfg.WLAN -and $_cfg.WLAN.SSID)     { $_cfg.WLAN.SSID }           else { "CHANGE_ME" }
 $sync.WlanPass           = if ($_cfg -and $_cfg.WLAN -and $_cfg.WLAN.Password) { $_cfg.WLAN.Password }       else { "CHANGE_ME" }
 $sync.AutostartEntries   = if ($_cfg -and $_cfg.Autostart)                     { $_cfg.Autostart }           else { @() }
+$sync.UninstallEntries   = if ($_cfg -and $_cfg.Uninstall)                     { $_cfg.Uninstall }           else { @() }
 $sync.UpdateSkipPattern  = if ($_cfg -and $_cfg.UpdateSkipPattern)             { $_cfg.UpdateSkipPattern }   else { "BIOS|Firmware|System Firmware" }
 if (-not (Test-Path $sync.LogDir)) { New-Item -ItemType Directory -Path $sync.LogDir | Out-Null }
 $sync.LogFile = Join-Path $sync.LogDir "$(Get-Date -Format 'yyyy-MM-dd')_$($sync.DeviceSN).txt"
@@ -195,7 +196,8 @@ Set-Content $counterFile $sync.RunCount
                         <CheckBox x:Name="chkWifi"     Content="Connect Wi-Fi" IsChecked="True"/>
                         <CheckBox x:Name="chkUpdates"  Content="Windows Updates" IsChecked="True"/>
                         <CheckBox x:Name="chkEnergy"   Content="Power settings" IsChecked="True"/>
-                        <CheckBox x:Name="chkCalman"   Content="Install programs" IsChecked="True"/>
+                        <CheckBox x:Name="chkCalman"    Content="Install programs" IsChecked="True"/>
+                        <CheckBox x:Name="chkUninstall" Content="Uninstall apps" IsChecked="True"/>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
                             <CheckBox x:Name="chkOneDrive" Content="Clean up autostart" IsChecked="True" VerticalAlignment="Center"/>
                             <TextBlock x:Name="btnAutostartToggle" Text=" >" Foreground="#89b4fa"
@@ -294,6 +296,7 @@ $sync.txtLog        = $sync.Window.FindName("txtLog")
 $sync.logScroller   = $sync.Window.FindName("logScroller")
 $sync.btnStart      = $sync.Window.FindName("btnStart")
 $sync.txtFooter     = $sync.Window.FindName("txtFooter")
+$sync.chkUninstall    = $sync.Window.FindName("chkUninstall")
 $sync.txtDoneDetails  = $sync.Window.FindName("txtDoneDetails")
 $sync.btnDoneOpenLog  = $sync.Window.FindName("btnDoneOpenLog")
 $sync.btnDoneClose    = $sync.Window.FindName("btnDoneClose")
@@ -313,6 +316,16 @@ if ($_progCount -gt 0) {
     $sync.chkCalman.IsEnabled = $false
 }
 
+# Uninstall label
+$_uninstCount = @($sync.UninstallEntries).Count
+if ($_uninstCount -gt 0) {
+    $sync.chkUninstall.Content = "Uninstall apps ($_uninstCount)"
+} else {
+    $sync.chkUninstall.Content   = "Uninstall apps (none)"
+    $sync.chkUninstall.IsChecked = $false
+    $sync.chkUninstall.IsEnabled = $false
+}
+
 # Run counter display (AutoRun mode only)
 if ($sync.AutoRun) {
     $sync.txtRunCount.Text = "Run $($sync.RunCount)"
@@ -325,16 +338,18 @@ if ($sync.AutoRun) {
     $sync.chkWifi.IsChecked      = $false
     $sync.chkEnergy.IsChecked    = $false
     $sync.chkCalman.IsChecked    = $false
-    $sync.chkOneDrive.IsChecked  = $false
-    $sync.chkTweaks.IsChecked    = $false
-    $sync.chkUpdates.IsChecked   = $true
-    $sync.chkWifi.IsEnabled      = $false
-    $sync.chkEnergy.IsEnabled    = $false
-    $sync.chkCalman.IsEnabled    = $false
-    $sync.chkOneDrive.IsEnabled  = $false
-    $sync.pnlAutostart.IsEnabled = $false
-    $sync.chkTweaks.IsEnabled    = $false
-    $sync.chkUpdates.IsEnabled   = $false
+    $sync.chkOneDrive.IsChecked   = $false
+    $sync.chkUninstall.IsChecked  = $false
+    $sync.chkTweaks.IsChecked     = $false
+    $sync.chkUpdates.IsChecked    = $true
+    $sync.chkWifi.IsEnabled       = $false
+    $sync.chkEnergy.IsEnabled     = $false
+    $sync.chkCalman.IsEnabled     = $false
+    $sync.chkOneDrive.IsEnabled   = $false
+    $sync.pnlAutostart.IsEnabled  = $false
+    $sync.chkUninstall.IsEnabled  = $false
+    $sync.chkTweaks.IsEnabled     = $false
+    $sync.chkUpdates.IsEnabled    = $false
 }
 
 # Autostart: arrow expands/collapses sub-panel
@@ -398,12 +413,13 @@ $sync.WorkerScript = {
 
     try {
         $totalSteps = 0
-        if ($sync.DoWifi)     { $totalSteps++ }
-        if ($sync.DoEnergy)   { $totalSteps++ }
-        if ($sync.DoCalman)   { $totalSteps++ }
-        if ($sync.DoOneDrive) { $totalSteps++ }
-        if ($sync.DoTweaks)   { $totalSteps++ }
-        if ($sync.DoUpdates)  { $totalSteps++ }
+        if ($sync.DoWifi)      { $totalSteps++ }
+        if ($sync.DoEnergy)    { $totalSteps++ }
+        if ($sync.DoCalman)    { $totalSteps++ }
+        if ($sync.DoUninstall) { $totalSteps++ }
+        if ($sync.DoOneDrive)  { $totalSteps++ }
+        if ($sync.DoTweaks)    { $totalSteps++ }
+        if ($sync.DoUpdates)   { $totalSteps++ }
         if ($totalSteps -eq 0) { $totalSteps = 1 }
         $doneSteps       = 0
         $errCount        = 0
@@ -589,6 +605,88 @@ $sync.WorkerScript = {
             $doneSteps++
         }
 
+        # Uninstall apps
+        if ($sync.DoUninstall) {
+            Set-UIProgress ([int]($doneSteps / $totalSteps * 100)) "Uninstalling apps..." "Step $($doneSteps+1)/$totalSteps"
+            Write-UILog "Uninstalling apps..."
+            $stepStart = Get-Date
+            try {
+                foreach ($app in $sync.UninstallEntries) {
+                    switch ($app.Type) {
+
+                        "OneDrive" {
+                            taskkill.exe /f /im OneDrive.exe 2>$null | Out-Console
+                            $odu = if (Test-Path "$env:SYSTEMROOT\SysWOW64\OneDriveSetup.exe") {
+                                "$env:SYSTEMROOT\SysWOW64\OneDriveSetup.exe"
+                            } else { "$env:SYSTEMROOT\System32\OneDriveSetup.exe" }
+                            if (Test-Path $odu) {
+                                $p = Start-Process $odu -ArgumentList "/uninstall" -PassThru -Wait
+                                Write-UILog "  OneDrive uninstalled (Exit $($p.ExitCode))" "OK"
+                            } else {
+                                Write-UILog "  OneDrive not found" "WARN"
+                            }
+                        }
+
+                        "Appx" {
+                            $pattern = $app.Match
+                            $removed = 0
+                            Get-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue |
+                                Where-Object { $_.PackageName -like $pattern } |
+                                ForEach-Object {
+                                    Remove-AppxProvisionedPackage -Online -PackageName $_.PackageName -ErrorAction SilentlyContinue | Out-Null
+                                    $removed++
+                                }
+                            Get-AppxPackage -Name $pattern -AllUsers -ErrorAction SilentlyContinue |
+                                ForEach-Object {
+                                    Remove-AppxPackage -Package $_.PackageFullName -AllUsers -ErrorAction SilentlyContinue
+                                    $removed++
+                                }
+                            if ($removed -gt 0) {
+                                Write-UILog "  $($app.ID): $removed package(s) removed" "OK"
+                            } else {
+                                Write-UILog "  $($app.ID): not installed" "OK"
+                            }
+                        }
+
+                        "Registry" {
+                            $uninstKeys = @(
+                                "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*",
+                                "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*"
+                            )
+                            $found = $false
+                            foreach ($key in $uninstKeys) {
+                                Get-ItemProperty $key -ErrorAction SilentlyContinue |
+                                    Where-Object { $_.DisplayName -match $app.Match } |
+                                    ForEach-Object {
+                                        $found = $true
+                                        $uStr = if ($_.QuietUninstallString) { $_.QuietUninstallString } else { $_.UninstallString }
+                                        Write-UILog "  Uninstalling $($_.DisplayName)..."
+                                        if ($uStr -match "MsiExec") {
+                                            $guid = [regex]::Match($uStr, '\{[^}]+\}').Value
+                                            Start-Process msiexec.exe -ArgumentList "/x $guid /quiet /norestart" -Wait -ErrorAction SilentlyContinue
+                                        } else {
+                                            $exe  = [regex]::Match($uStr, '"([^"]+)"').Groups[1].Value
+                                            $args = $uStr -replace '"[^"]*"','' -replace '^\s*',''
+                                            if (-not $exe) { $exe = $uStr.Split(' ')[0] }
+                                            Start-Process $exe -ArgumentList "$args /quiet /silent /S /norestart" -Wait -ErrorAction SilentlyContinue
+                                        }
+                                        Write-UILog "  $($_.DisplayName) uninstalled" "OK"
+                                    }
+                            }
+                            if (-not $found) { Write-UILog "  $($app.ID): not found" "OK" }
+                        }
+                    }
+                }
+                Write-UILog "Apps uninstalled ($([int]((Get-Date)-$stepStart).TotalSeconds)s)" "OK"
+                $okCount++
+            } catch {
+                Write-UILog "Error uninstalling apps: $_" "ERROR"
+                $errCount++
+                $failedStepNames.Add("Uninstall apps")
+            }
+            $doneSteps++
+        }
+
         # Clean up autostart
         if ($sync.DoOneDrive) {
             Set-UIProgress ([int]($doneSteps / $totalSteps * 100)) "Cleaning up autostart..." "Step $($doneSteps+1)/$totalSteps"
@@ -680,6 +778,20 @@ $sync.WorkerScript = {
                     powercfg /setactive $perfGuid 2>$null | Out-Console
                 }
                 Write-UILog "  High performance activated"
+
+                # Disable Edge First-Run wizard
+                $edgePol = "HKLM:\SOFTWARE\Policies\Microsoft\Edge"
+                if (-not (Test-Path $edgePol)) { New-Item $edgePol -Force | Out-Console }
+                Set-ItemProperty $edgePol -Name "HideFirstRunExperience" -Value 1 -Type DWord -Force
+                Set-ItemProperty $edgePol -Name "StartupBoostEnabled"    -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue
+                Write-UILog "  Edge first-run disabled"
+
+                # Set timezone & region to Austria
+                Set-TimeZone "W. Europe Standard Time" -ErrorAction SilentlyContinue
+                Set-WinHomeLocation -GeoId 14 -ErrorAction SilentlyContinue
+                Set-WinSystemLocale -SystemLocale de-AT -ErrorAction SilentlyContinue
+                Set-Culture de-AT -ErrorAction SilentlyContinue
+                Write-UILog "  Timezone & region: Austria (de-AT)"
 
                 Write-UILog "Windows optimized ($([int]((Get-Date)-$stepStart).TotalSeconds)s)" "OK"
                 $okCount++
@@ -1035,6 +1147,7 @@ $sync.btnStart.Add_Click({
     $sync.DoWifi          = [bool]$sync.chkWifi.IsChecked
     $sync.DoEnergy        = [bool]$sync.chkEnergy.IsChecked
     $sync.DoCalman        = [bool]$sync.chkCalman.IsChecked
+    $sync.DoUninstall     = [bool]$sync.chkUninstall.IsChecked
     $sync.DoOneDrive      = [bool]$sync.chkOneDrive.IsChecked
     $sync.DoAutoOneDrive  = [bool]$sync.chkAutoOneDrive.IsChecked
     $sync.DoAutoPhoneLink = [bool]$sync.chkAutoPhoneLink.IsChecked
@@ -1047,6 +1160,7 @@ $sync.btnStart.Add_Click({
     $sync.chkWifi.IsEnabled      = $false
     $sync.chkEnergy.IsEnabled    = $false
     $sync.chkCalman.IsEnabled    = $false
+    $sync.chkUninstall.IsEnabled = $false
     $sync.chkOneDrive.IsEnabled  = $false
     $sync.pnlAutostart.IsEnabled = $false
     $sync.chkTweaks.IsEnabled    = $false
